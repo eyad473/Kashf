@@ -277,12 +277,25 @@
   </div>
   <!-- ===== END FEATURE: التحقق من وجود تحديث ===== -->
 
+  <!-- ===== FEATURE: تأكيد نجاح التحديث ===== -->
+  <div class="modal-bg" id="updatedModalBg" style="align-items:center;">
+    <div class="modal" style="border-radius:20px; text-align:center;">
+      <div style="font-size:44px; margin-bottom:10px;">✅</div>
+      <h3>تم تحديث التطبيق</h3>
+      <p id="updatedModalText">صار عندك آخر إصدار من التطبيق.</p>
+      <div class="action-row">
+        <button onclick="closeUpdatedModal()" style="background:var(--accent); color:#08130d; font-weight:700;">تمام</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: تأكيد نجاح التحديث ===== -->
+
 
   <header>
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.1</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.2</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -738,7 +751,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '6.1'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '6.2'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1328,6 +1341,14 @@ function printFamilyPDF(id){
     ${distHtml}
     <div class="print-footer">© 2026 جميع الحقوق محفوظة لـ أبو عمر البيك</div>
   `;
+  // FEATURE: اسم ملف الـPDF المقترح = اسم العائلة (المتصفح بياخد عنوان الصفحة كاسم افتراضي وقت "حفظ كـ PDF")
+  const originalTitle = document.title;
+  document.title = f.name;
+  window.addEventListener('afterprint', function restoreTitle(){
+    document.title = originalTitle;
+    window.removeEventListener('afterprint', restoreTitle);
+  });
+  setTimeout(()=>{ document.title = originalTitle; }, 5000); // حماية احتياطية لو afterprint ما اشتغل (بعض متصفحات آيفون)
   window.print();
 }
 /* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
@@ -2575,6 +2596,23 @@ function applyUpdate(){
 function closeUpdateModal(){
   document.getElementById('updateModalBg').classList.remove('show');
 }
+
+/* ========================= FEATURE: تأكيد نجاح التحديث - يضمن ظهور رسالة بكل رفعة إصدار جديد ========================= */
+const LAST_SEEN_VERSION_KEY = 'kashf_last_seen_version';
+function checkVersionChanged(){
+  const lastSeen = localStorage.getItem(LAST_SEEN_VERSION_KEY);
+  if(lastSeen && lastSeen !== APP_VERSION){
+    // صار تحديث فعلي (كان عندك إصدار، وهلق صار عندك إصدار تاني) — نوريه بوضوح بنص الشاشة
+    document.getElementById('updatedModalText').textContent = `صار عندك آخر إصدار (${APP_VERSION}) — فيه تحسينات وإصلاحات جديدة.`;
+    document.getElementById('updatedModalBg').classList.add('show');
+  }
+  localStorage.setItem(LAST_SEEN_VERSION_KEY, APP_VERSION); // نسجّل هاد الإصدار كآخر واحد شفته
+}
+function closeUpdatedModal(){
+  document.getElementById('updatedModalBg').classList.remove('show');
+}
+checkVersionChanged();
+/* ========================= END FEATURE: تأكيد نجاح التحديث ========================= */
 
 /* ========================= FEATURE: تخزين الخط العربي دائماً (يعمل بدون إنترنت بعد أول تحميل) ========================= */
 const FONT_CACHE_KEY = 'kashf_font_cache_v1';
