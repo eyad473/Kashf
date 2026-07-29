@@ -233,11 +233,13 @@
   /* ===== FEATURE: طباعة PDF لملف العائلة ===== */
   #printArea{ display:none; }
   @media print{
-    body *{ visibility:hidden; }
-    #printArea, #printArea *{ visibility:visible; }
+    @page{ margin:14mm 12mm; }
+    /* إخفاء قطعي (display:none) بدل visibility — عناصر position:fixed/sticky زي الهيدر وشريط التنقل بتسبب مربعات سودة بالطباعة لو اتخفت بـvisibility بس */
+    header, nav, main{ display:none !important; }
+    .modal-bg{ display:none !important; }
+    body, html{ background:#fff !important; }
     #printArea{
-      display:block; position:absolute; top:0; right:0; left:0; width:100%;
-      background:#fff; color:#111; font-family:"Cairo","Tahoma",sans-serif; direction:rtl; padding:0;
+      display:block !important; background:#fff; color:#111; font-family:"Cairo","Tahoma",sans-serif; direction:rtl; padding:0;
     }
     .print-header{
       display:flex; align-items:center; justify-content:space-between; gap:14px;
@@ -280,7 +282,7 @@
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.0</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.1</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -736,7 +738,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '6.0'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '6.1'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
