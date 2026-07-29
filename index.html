@@ -251,6 +251,7 @@
   .print-dist-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   .print-dist-table th{ background:#f0f4f2; color:#333; text-align:right; padding:8px 10px; border:1px solid #ddd; }
   .print-dist-table td{ padding:7px 10px; border:1px solid #eee; }
+  .print-dist-table.wide-export th, .print-dist-table.wide-export td{ font-size:15px; padding:10px 12px; } /* FEATURE: خط أكبر لتصدير الكشف الكامل (أفقي) */
   .print-footer{ margin-top:34px; text-align:center; font-size:11px; color:#999; border-top:1px solid #eee; padding-top:12px; }
   /* احتياط: طباعة عادية بالمتصفح لو مكتبات الـPDF المباشر ما توفرت (أول استخدام بدون نت) */
   @media print{
@@ -296,7 +297,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.2</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.3</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -816,7 +817,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '7.2'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '7.3'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1431,7 +1432,8 @@ function printFamilyPDF(id){
   generateFamilyPDFFile(f.name);
 }
 
-async function generateFamilyPDFFile(familyName){
+async function generateFamilyPDFFile(familyName, orientation){
+  orientation = orientation || 'p'; // FEATURE: دعم الاتجاه الأفقي للجداول العريضة (كتير أعمدة)
   showToast('⏳ جاري تجهيز الملف...');
   const [ok1, ok2] = await Promise.all([ensureLib('html2canvas'), ensureLib('jspdf')]);
   if(!ok1 || !ok2){
@@ -1447,8 +1449,8 @@ async function generateFamilyPDFFile(familyName){
     const canvas = await window.html2canvas(printEl, { scale:2, backgroundColor:'#ffffff', useCORS:true });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageW = 210, pageH = 297, margin = 10;
+    const pdf = new jsPDF(orientation, 'mm', 'a4');
+    const pageW = orientation === 'l' ? 297 : 210, pageH = orientation === 'l' ? 210 : 297, margin = 10;
     const imgW = pageW - margin*2;
     const imgH = canvas.height * imgW / canvas.width;
     let heightLeft = imgH;
@@ -1642,7 +1644,7 @@ function exportSelectedPDF(finalHeaders, finalRows){
   const today = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
   const theadHtml = '<tr>' + finalHeaders.map(h=>`<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
   const tbodyHtml = finalRows.map(r => '<tr>' + r.map(v=>`<td>${escapeHtml(String(v==null?'':v))}</td>`).join('') + '</tr>').join('');
-  const capturingWidth = Math.max(780, finalHeaders.length * 130); // عرض أوسع لو الأعمدة كتير حتى تضل النصوص مقروءة
+  const capturingWidth = Math.max(950, finalHeaders.length * 150); // FEATURE: عرض أفقي أوسع + خط أكبر
   document.getElementById('printArea').style.width = capturingWidth + 'px';
   document.getElementById('printArea').innerHTML = `
     <div class="print-header">
@@ -1651,13 +1653,13 @@ function exportSelectedPDF(finalHeaders, finalRows){
         <div class="sub">تاريخ التصدير: ${today} — إجمالي ${finalRows.length} عائلة</div>
       </div>
     </div>
-    <table class="print-dist-table">
+    <table class="print-dist-table wide-export">
       <thead>${theadHtml}</thead>
       <tbody>${tbodyHtml}</tbody>
     </table>
     <div class="print-footer">© 2026 جميع الحقوق محفوظة لـ أبو عمر البيك</div>
   `;
-  generateFamilyPDFFile(appName() + (reg? ' - '+reg.name : ''));
+  generateFamilyPDFFile(appName() + (reg? ' - '+reg.name : ''), 'l'); // FEATURE: طباعة أفقية (landscape)
 }
 /* ===== END FEATURE: نظام تصدير موحد ===== */
 
