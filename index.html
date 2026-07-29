@@ -23,19 +23,34 @@
 <!-- ===== END FEATURE: خط عربي مميز ===== -->
 
 <style>
-  :root{
-    --bg:#0f1b16;
-    --panel:#16261f;
-    --panel-2:#1c2f26;
+  /* ===== FEATURE: ثيمات داكن/فاتح ===== */
+  :root, body.theme-dark{
+    --bg:#050706;
+    --panel:#161816;
+    --panel-2:#1e211e;
     --accent:#3fae6b;
     --accent-dark:#2c8352;
     --accent-2:#e8a838;
-    --text:#eef3ef;
-    --text-dim:#9db3a7;
+    --text:#f1f3f1;
+    --text-dim:#9aa39c;
     --danger:#d9534f;
-    --border:#28402f;
+    --border:#2a2d2a;
     --radius:16px;
   }
+  body.theme-light{
+    --bg:#ffffff;
+    --panel:#f5f7f6;
+    --panel-2:#ebeeec;
+    --accent:#2c8352;
+    --accent-dark:#1f6b40;
+    --accent-2:#c98a1e;
+    --text:#16241c;
+    --text-dim:#5c6b62;
+    --danger:#c0392b;
+    --border:#dde3e0;
+    --radius:16px;
+  }
+  /* ===== END FEATURE: ثيمات داكن/فاتح ===== */
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;}
   body{
@@ -220,9 +235,16 @@
 <body>
 <div id="app">
   <!-- ===== FEATURE: التحقق من وجود تحديث ===== -->
-  <div id="updateBanner" style="display:none; background:#f5a623; color:#241a00; padding:10px 16px; font-size:13.5px; align-items:center; justify-content:space-between; gap:10px;">
-    <span>🔄 في تحديث جديد للتطبيق</span>
-    <button onclick="applyUpdate()" style="background:#241a00; color:#fff; border:none; padding:7px 14px; border-radius:8px; font-weight:700; font-family:inherit; white-space:nowrap; cursor:pointer;">تحديث الآن</button>
+  <div class="modal-bg" id="updateModalBg" style="align-items:center;">
+    <div class="modal" style="border-radius:20px; text-align:center;">
+      <div style="font-size:44px; margin-bottom:10px;">🔄</div>
+      <h3>يرجى تحديث التطبيق</h3>
+      <p>في نسخة جديدة فيها تحسينات وإصلاحات. حدّث الآن حتى يضل كل شي شغال صح.</p>
+      <div class="action-row">
+        <button onclick="applyUpdate()" style="background:var(--accent); color:#08130d; font-weight:700;">تحديث الآن</button>
+        <button onclick="closeUpdateModal()">لاحقاً</button>
+      </div>
+    </div>
   </div>
   <!-- ===== END FEATURE: التحقق من وجود تحديث ===== -->
 
@@ -231,9 +253,14 @@
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 5.6</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 5.7</div>
       </div>
-      <div class="badge-count"><span class="dot"></span><span id="onlineTxt">يعمل بدون إنترنت</span></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
+        <button id="themeToggleBtn" onclick="toggleTheme()" style="width:38px; height:38px; border-radius:12px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); font-size:17px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">🌙</button>
+        <!-- ===== END FEATURE: ثيمات داكن/فاتح ===== -->
+        <div class="badge-count"><span class="dot"></span><span id="onlineTxt">يعمل بدون إنترنت</span></div>
+      </div>
     </div>
     <!-- ===== FEATURE: كشوفات متعددة - زر تبديل ===== -->
     <button id="registrySwitchBtn" onclick="openRegistrySwitcher()" style="width:100%; margin-top:10px; background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:11px 14px; color:var(--text); font-size:14px; font-family:inherit; display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
@@ -662,7 +689,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '5.6'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '5.7'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -2331,6 +2358,20 @@ window.addEventListener('error', function(e){
 window.addEventListener('unhandledrejection', function(e){
   showToast('⚠️ صار خطأ غير متوقع: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
 });
+/* ========================= FEATURE: ثيمات داكن/فاتح ========================= */
+const THEME_KEY = 'kashf_theme_v1';
+function applyTheme(theme){
+  document.body.classList.toggle('theme-light', theme === 'light');
+  document.getElementById('themeToggleBtn').textContent = theme === 'light' ? '☀️' : '🌙';
+}
+function toggleTheme(){
+  const current = localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+applyTheme(localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
+/* ========================= END FEATURE: ثيمات داكن/فاتح ========================= */
 renderHome();
 
 /* ========================= FEATURE: التحقق من وجود تحديث ========================= */
@@ -2355,8 +2396,7 @@ async function checkForUpdate(){
     const m = text.match(/إصدار\s*([\d.]+)/);
     if(!m) return;
     if(isNewerVersion(m[1], APP_VERSION)){
-      const banner = document.getElementById('updateBanner');
-      banner.style.display = 'flex';
+      document.getElementById('updateModalBg').classList.add('show');
     }
   }catch(err){
     // فشل التحقق بصمت — غالباً لأنه التطبيق مفتوح كملف محلي (بدون رابط حي) أو مشكلة نت مؤقتة
@@ -2365,6 +2405,9 @@ async function checkForUpdate(){
 
 function applyUpdate(){
   window.location.href = window.location.origin + window.location.pathname + '?refresh=' + Date.now();
+}
+function closeUpdateModal(){
+  document.getElementById('updateModalBg').classList.remove('show');
 }
 
 /* ========================= FEATURE: تخزين الخط العربي دائماً (يعمل بدون إنترنت بعد أول تحميل) ========================= */
