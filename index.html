@@ -295,8 +295,8 @@
   <header>
     <div class="title-row">
       <div>
-        <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.4</div>
+        <h1 id="appTitleH1">📋 كشف المخيم</h1>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.0</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -497,6 +497,14 @@
       <!-- ===== FEATURE: حساب الأعمار تلقائياً ===== -->
       <button class="big-btn secondary" onclick="openAgeCalcModal()"><span class="icon">🎂</span> حساب الأعمار تلقائياً من تاريخ الميلاد</button>
       <!-- ===== END FEATURE: حساب الأعمار تلقائياً ===== -->
+
+      <!-- ===== FEATURE: كاشف التكرار ===== -->
+      <button class="big-btn secondary" onclick="openDuplicateFinder()"><span class="icon">🔍</span> كاشف التكرار (أسماء متشابهة)</button>
+      <!-- ===== END FEATURE: كاشف التكرار ===== -->
+
+      <!-- ===== FEATURE: سلة المحذوفات ===== -->
+      <button class="big-btn secondary" onclick="goto('trash')"><span class="icon">🗑️</span> سلة المحذوفات</button>
+      <!-- ===== END FEATURE: سلة المحذوفات ===== -->
       <!-- ===== END FEATURE: قائمة مخصصة ===== -->
 
       <div class="stat-grid">
@@ -508,6 +516,9 @@
 
       <button class="big-btn" onclick="exportFamiliesCSV()"><span class="icon">📤</span> تصدير كشف العائلات (Excel)</button>
       <button class="big-btn secondary" onclick="exportDistCSV()"><span class="icon">📤</span> تصدير سجل التوزيعات (Excel)</button>
+      <!-- ===== FEATURE: تصدير الكشف كامل PDF ===== -->
+      <button class="big-btn secondary" onclick="exportRegistryPDF()"><span class="icon">📄</span> تصدير الكشف الكامل PDF</button>
+      <!-- ===== END FEATURE: تصدير الكشف كامل PDF ===== -->
       <button class="big-btn outline" onclick="exportBackupJSON()"><span class="icon">🗄️</span> نسخة احتياطية كاملة</button>
 
       <!-- ===== FEATURE: زر مشاركة مباشرة ===== -->
@@ -576,6 +587,23 @@
       <div style="height:40px"></div>
     </section>
     <!-- ===== END FEATURE: قائمة مخصصة ===== -->
+
+    <!-- ===== FEATURE: سلة المحذوفات ===== -->
+    <section class="screen" id="screen-trash">
+      <div class="detail-header">
+        <div class="back-btn" onclick="goto('reports')">‹</div>
+        <div class="detail-name">🗑️ سلة المحذوفات</div>
+      </div>
+      <p style="color:var(--text-dim); font-size:13px; line-height:1.9; margin:0 0 16px;">
+        العائلات والتوزيعات المحذوفة من الكشف الحالي. تقدر تسترجع أي وحدة منها بضغطة.
+      </p>
+      <div class="section-title"><span>عائلات محذوفة</span><span class="line"></span></div>
+      <div id="trashFamiliesList"></div>
+      <div class="section-title"><span>توزيعات محذوفة</span><span class="line"></span></div>
+      <div id="trashDistList"></div>
+      <div style="height:40px"></div>
+    </section>
+    <!-- ===== END FEATURE: سلة المحذوفات ===== -->
 
   </main>
 
@@ -694,6 +722,14 @@
   <div class="modal-bg" id="registrySwitcherBg">
     <div class="modal">
       <h3>📋 الكشوفات</h3>
+      <!-- ===== FEATURE: اسم المخيم ===== -->
+      <label>اسم المخيم</label>
+      <div style="display:flex; gap:8px; margin-bottom:16px;">
+        <input type="text" id="campNameInput" placeholder="مثلاً: مخيم أبو عريبان" style="flex:1;">
+        <button onclick="saveCampName()" style="padding:0 18px; border-radius:12px; border:none; background:var(--accent); color:#08130d; font-weight:700;">💾</button>
+      </div>
+      <p style="font-size:12.5px; color:var(--text-dim); margin-top:-10px; margin-bottom:16px;">بيظهر بدل "كشف المخيم" بكل التقارير والطباعة.</p>
+      <!-- ===== END FEATURE: اسم المخيم ===== -->
       <p>بدّل بين الكشوفات (عائلات، أطفال، نساء، جرحى...) — كل كشف منفصل تماماً عن الباقي.</p>
       <div id="registryList" style="max-height:280px; overflow-y:auto; margin-bottom:14px;"></div>
       <label>إنشاء كشف جديد</label>
@@ -743,6 +779,19 @@
   </div>
   <!-- ===== END FEATURE: تعديل/حذف التوزيع ===== -->
 
+  <!-- ===== FEATURE: كاشف التكرار ===== -->
+  <div class="modal-bg" id="dupFinderBg">
+    <div class="modal">
+      <h3>🔍 كاشف التكرار</h3>
+      <p>عائلات بأسماء متشابهة جداً — احتمال تسجيل مكرر بالغلط. راجعهم يدوياً وقرر.</p>
+      <div id="dupFinderResults" style="max-height:400px; overflow-y:auto;"></div>
+      <div class="action-row" style="margin-top:16px;">
+        <button onclick="closeDuplicateFinder()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: كاشف التكرار ===== -->
+
   <!-- ===== FEATURE: طباعة PDF لملف العائلة (مخفي، بيظهر بس وقت الطباعة الفعلية) ===== -->
   <div id="printArea"></div>
   <!-- ===== END FEATURE: طباعة PDF لملف العائلة ===== -->
@@ -752,7 +801,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '6.4'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '7.0'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -779,6 +828,10 @@ function migrateData(data){
   // معرّف ثابت لهاد الجهاز (بيفيد لاحقاً وقت المزامنة نعرف مصدر كل تعديل)
   if(!data.deviceId) data.deviceId = 'dev_' + Math.random().toString(36).slice(2, 10);
   /* ===== END FEATURE: تجهيز البيانات للمزامنة ===== */
+
+  /* ===== FEATURE: اسم المخيم ===== */
+  if(data.campName === undefined) data.campName = '';
+  /* ===== END FEATURE: اسم المخيم ===== */
 
   return data;
 }
@@ -816,7 +869,23 @@ function setActiveRegistry(id){
   saveDB();
   renderHome();
 }
+/* ===== FEATURE: اسم المخيم ===== */
+function appName(){ return (db.campName && db.campName.trim()) ? db.campName.trim() : 'كشف المخيم'; }
+function updateAppTitleUI(){
+  const el = document.getElementById('appTitleH1');
+  if(el) el.textContent = '📋 ' + appName();
+}
+function saveCampName(){
+  const val = document.getElementById('campNameInput').value.trim();
+  db.campName = val;
+  saveDB();
+  updateAppTitleUI();
+  showToast('✅ تم الحفظ');
+}
+/* ===== END FEATURE: اسم المخيم ===== */
+
 function openRegistrySwitcher(){
+  document.getElementById('campNameInput').value = db.campName || ''; // FEATURE: اسم المخيم
   const box = document.getElementById('registryList');
   const regs = activeRegistries(); // FEATURE: حذف ناعم
   box.innerHTML = regs.map(r => {
@@ -918,13 +987,14 @@ function goto(screen){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const navBtn = document.querySelector('nav button[data-s="'+screen+'"]');
   if(navBtn) navBtn.classList.add('active');
-  document.getElementById('bottomNav').classList.toggle('hide', screen==='detail' || screen==='mapping' || screen==='customlist');
+  document.getElementById('bottomNav').classList.toggle('hide', screen==='detail' || screen==='mapping' || screen==='customlist' || screen==='trash');
   window.scrollTo(0,0);
 
   if(screen==='home') renderHome();
   if(screen==='list') renderList();
   if(screen==='reports') renderReports();
   if(screen==='customlist') initCustomListScreen(); // FEATURE: قائمة مخصصة
+  if(screen==='trash') renderTrash(); // FEATURE: سلة المحذوفات
   if(screen==='addFamily' && !editingFamilyId){
     document.getElementById('famFormTitle').textContent = 'تسجيل عائلة جديدة';
     clearFamilyForm();
@@ -1331,7 +1401,7 @@ function printFamilyPDF(id){
   document.getElementById('printArea').innerHTML = `
     <div class="print-header">
       <div>
-        <h1>📋 كشف المخيم${reg? ' — '+escapeHtml(reg.name):''}</h1>
+        <h1>📋 ${escapeHtml(appName())}${reg? ' — '+escapeHtml(reg.name):''}</h1>
         <div class="sub">تاريخ الطباعة: ${printDate}</div>
       </div>
     </div>
@@ -1392,6 +1462,138 @@ function printViaFallback(){
   setTimeout(()=>{ document.body.classList.remove('printing-fallback'); }, 1000);
 }
 /* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
+
+/* ===== FEATURE: سلة المحذوفات ===== */
+function renderTrash(){
+  const deletedFams = db.families.filter(f => f.registryId === db.activeRegistryId && f.deleted);
+  const famBox = document.getElementById('trashFamiliesList');
+  famBox.innerHTML = deletedFams.length === 0
+    ? '<div class="empty-state" style="padding:20px 0;">لا يوجد عائلات محذوفة</div>'
+    : deletedFams.map(f => `
+      <div class="fam-card">
+        <div class="top"><div class="name">${escapeHtml(f.name)}</div></div>
+        <div class="action-row" style="margin-top:8px;">
+          <button onclick="restoreFamily('${f.id}')" style="background:var(--accent); color:#08130d; font-weight:700;">↩️ استرجاع</button>
+        </div>
+      </div>`).join('');
+
+  const famIdsInReg = new Set(db.families.filter(f=>f.registryId===db.activeRegistryId).map(f=>f.id));
+  const deletedDists = db.distributions.filter(d => famIdsInReg.has(d.familyId) && d.deleted);
+  const distBox = document.getElementById('trashDistList');
+  distBox.innerHTML = deletedDists.length === 0
+    ? '<div class="empty-state" style="padding:20px 0;">لا يوجد توزيعات محذوفة</div>'
+    : deletedDists.map(d => {
+        const fam = db.families.find(f=>f.id===d.familyId);
+        return `
+        <div class="dist-item">
+          <div>
+            <div class="dtype">${escapeHtml(fam ? fam.name : 'عائلة محذوفة')} — ${escapeHtml(d.type)}</div>
+            <div class="ddate">${d.date}</div>
+          </div>
+          <button onclick="restoreDistribution('${d.id}')" style="background:var(--panel-2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 9px; font-size:13px; cursor:pointer;">↩️</button>
+        </div>`;
+      }).join('');
+}
+function restoreFamily(id){
+  const f = db.families.find(x=>x.id===id);
+  if(!f) return;
+  f.deleted = false;
+  f.updatedAt = Date.now();
+  db.distributions.forEach(d => { if(d.familyId===id && d.deleted){ d.deleted=false; d.updatedAt=Date.now(); } });
+  saveDB();
+  renderTrash();
+  showToast('✅ تم استرجاع العائلة');
+}
+function restoreDistribution(id){
+  const d = db.distributions.find(x=>x.id===id);
+  if(!d) return;
+  d.deleted = false;
+  d.updatedAt = Date.now();
+  saveDB();
+  renderTrash();
+  showToast('✅ تم استرجاع التوزيع');
+}
+/* ===== END FEATURE: سلة المحذوفات ===== */
+
+/* ===== FEATURE: كاشف التكرار ===== */
+function normalizeArabicWord(w){
+  return (w||'')
+    .replace(/[إأآا]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[\u064B-\u065F]/g, ''); // إزالة التشكيل
+}
+function nameSimilarity(a, b){
+  const wordsA = (a||'').trim().split(/\s+/).filter(Boolean).map(normalizeArabicWord);
+  const wordsB = (b||'').trim().split(/\s+/).filter(Boolean).map(normalizeArabicWord);
+  if(wordsA.length===0 || wordsB.length===0) return 0;
+  const setA = new Set(wordsA), setB = new Set(wordsB);
+  let common = 0;
+  setA.forEach(w => { if(setB.has(w)) common++; });
+  const union = new Set([...setA, ...setB]).size;
+  return common / union; // نسبة تشابه (Jaccard) على مستوى الكلمات، بعد تطبيع الهمزات والتاء المربوطة
+}
+function openDuplicateFinder(){
+  const fams = familiesInActiveRegistry();
+  const pairs = [];
+  for(let i=0;i<fams.length;i++){
+    for(let j=i+1;j<fams.length;j++){
+      const sim = nameSimilarity(fams[i].name, fams[j].name);
+      if(sim >= 0.6) pairs.push({ a:fams[i], b:fams[j], sim });
+    }
+  }
+  pairs.sort((x,y)=>y.sim-x.sim);
+  const box = document.getElementById('dupFinderResults');
+  box.innerHTML = pairs.length === 0
+    ? '<div class="empty-state" style="padding:20px 0;">✅ ما لقينا أي تكرار محتمل بهاد الكشف</div>'
+    : pairs.map(p => `
+      <div class="fam-card" style="margin-bottom:10px;">
+        <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:8px;">تشابه ${Math.round(p.sim*100)}%</div>
+        <div class="action-row">
+          <button onclick="closeDuplicateFinder(); openDetail('${p.a.id}');">${escapeHtml(p.a.name)}</button>
+          <button onclick="closeDuplicateFinder(); openDetail('${p.b.id}');">${escapeHtml(p.b.name)}</button>
+        </div>
+      </div>`).join('');
+  document.getElementById('dupFinderBg').classList.add('show');
+}
+function closeDuplicateFinder(){
+  document.getElementById('dupFinderBg').classList.remove('show');
+}
+/* ===== END FEATURE: كاشف التكرار ===== */
+
+/* ===== FEATURE: تصدير الكشف كامل PDF ===== */
+async function exportRegistryPDF(){
+  const fams = familiesInActiveRegistry();
+  if(fams.length === 0){ showToast('⚠️ ما في عائلات بهاد الكشف'); return; }
+  const reg = activeRegistry();
+  const today = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+
+  const rowsHtml = fams.map((f,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(f.name)}</td>
+      <td>${escapeHtml(f.phone||'—')}</td>
+      <td>${escapeHtml(f.tent||'—')}</td>
+      <td>${Number.isFinite(f.count)?f.count:'—'}</td>
+      <td>${f.tag && TAG_INFO[f.tag] ? escapeHtml(TAG_INFO[f.tag].label) : '—'}</td>
+    </tr>`).join('');
+
+  document.getElementById('printArea').innerHTML = `
+    <div class="print-header">
+      <div>
+        <h1>📋 ${escapeHtml(appName())}${reg? ' — '+escapeHtml(reg.name):''}</h1>
+        <div class="sub">تاريخ التصدير: ${today} — إجمالي ${fams.length} عائلة</div>
+      </div>
+    </div>
+    <table class="print-dist-table">
+      <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>الخيمة/الموقع</th><th>عدد الأفراد</th><th>التصنيف</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div class="print-footer">© 2026 جميع الحقوق محفوظة لـ أبو عمر البيك</div>
+  `;
+  generateFamilyPDFFile(appName() + (reg? ' - '+reg.name : ''));
+}
+/* ===== END FEATURE: تصدير الكشف كامل PDF ===== */
 
 function openEditDistribution(distId){
   const d = db.distributions.find(x=>x.id===distId && !x.deleted);
@@ -1761,7 +1963,7 @@ function buildQuickReportText(){
   const distThisWeek = dists.filter(d => (d.ts||0) >= weekAgo).length;
   const noDistCount = fams.filter(f => daysSinceLastDist(f.id) >= 14).length;
 
-  return `📋 تقرير كشف المخيم — ${today}
+  return `📋 تقرير ${appName()} — ${today}
 
 👪 عدد العائلات: ${fams.length}
 👤 إجمالي الأفراد: ${totalPeople}
@@ -2599,6 +2801,7 @@ function toggleTheme(){
 }
 applyTheme(localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
 /* ========================= END FEATURE: ثيمات داكن/فاتح ========================= */
+updateAppTitleUI(); // FEATURE: اسم المخيم
 renderHome();
 
 /* ========================= FEATURE: التحقق من وجود تحديث ========================= */
