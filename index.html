@@ -253,7 +253,7 @@
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 5.8</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 5.9</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -543,7 +543,7 @@
   <!-- Modal: تسجيل توزيع -->
   <div class="modal-bg" id="distModalBg">
     <div class="modal">
-      <h3>📦 تسجيل توزيع مساعدة</h3>
+      <h3 id="distModalTitle">📦 تسجيل توزيع مساعدة</h3>
       <p id="distModalSub">اختر العائلة ونوع المساعدة</p>
 
       <div id="distFamPicker">
@@ -578,7 +578,7 @@
 
       <div class="action-row" style="margin-top:16px">
         <button onclick="closeDistModal()">إلغاء</button>
-        <button style="background:var(--accent); color:#08130d; border:none; font-weight:700;" onclick="saveDistribution()">✅ تأكيد التوزيع</button>
+        <button id="distSaveBtn" style="background:var(--accent); color:#08130d; border:none; font-weight:700;" onclick="saveDistribution()">✅ تأكيد التوزيع</button>
       </div>
     </div>
   </div>
@@ -683,12 +683,25 @@
     </div>
   </div>
 
+  <!-- ===== FEATURE: تعديل/حذف التوزيع ===== -->
+  <div class="modal-bg" id="deleteDistModalBg">
+    <div class="modal">
+      <h3>⚠️ تأكيد حذف التوزيع</h3>
+      <p>رح ينحذف هذا التوزيع نهائياً من سجل العائلة. هل انت متأكد؟</p>
+      <div class="action-row">
+        <button onclick="closeDeleteDistModal()">تراجع</button>
+        <button class="danger" onclick="doDeleteDistribution()">حذف نهائي</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: تعديل/حذف التوزيع ===== -->
+
 </div>
 
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '5.8'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '5.9'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -839,6 +852,8 @@ function doDeleteRegistry(){
 
 /* ========================= NAV ========================= */
 let currentFamilyId = null;
+let editingDistId = null; // FEATURE: تعديل/حذف التوزيع
+let distPendingDelete = null; // FEATURE: تعديل/حذف التوزيع
 let editingFamilyId = null;
 
 function goto(screen){
@@ -1157,6 +1172,10 @@ function renderFamilyDist(id){
         <div class="dtype">${d.type}${d.qty? ' · '+escapeHtml(d.qty):''}</div>
         <div class="ddate">${d.date}${d.notes? ' — '+escapeHtml(d.notes):''}</div>
       </div>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button onclick="openEditDistribution('${d.id}')" style="background:var(--panel-2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 9px; font-size:13px; cursor:pointer;">✏️</button>
+        <button onclick="confirmDeleteDistribution('${d.id}')" style="background:var(--panel-2); border:1px solid var(--border); color:var(--danger); border-radius:8px; padding:6px 9px; font-size:13px; cursor:pointer;">🗑️</button>
+      </div>
     </div>`).join('');
 }
 
@@ -1219,20 +1238,75 @@ function openBulkDistribute(){
   document.getElementById('distModalBg').dataset.bulk = '1';
 }
 /* ===== END FEATURE: توزيع جماعي ===== */
+/* ===== FEATURE: تعديل/حذف التوزيع ===== */
+function openEditDistribution(distId){
+  const d = db.distributions.find(x=>x.id===distId && !x.deleted);
+  if(!d) return;
+  editingDistId = distId;
+  document.getElementById('distFamPicker').style.display='none';
+  document.getElementById('distModalTitle').textContent = '✏️ تعديل توزيع مساعدة';
+  document.getElementById('distModalSub').textContent = 'عدّل بيانات التوزيع واحفظ';
+  document.getElementById('distSaveBtn').textContent = '💾 حفظ التعديل';
+  document.getElementById('d_type').value = d.type;
+  document.getElementById('d_qty').value = d.qty || '';
+  document.getElementById('d_date').value = d.date || new Date().toISOString().slice(0,10);
+  document.getElementById('d_notes').value = d.notes || '';
+  document.getElementById('distModalBg').dataset.fixedFam = d.familyId;
+  document.getElementById('distModalBg').classList.add('show');
+}
+function confirmDeleteDistribution(distId){
+  distPendingDelete = distId;
+  document.getElementById('deleteDistModalBg').classList.add('show');
+}
+function closeDeleteDistModal(){ document.getElementById('deleteDistModalBg').classList.remove('show'); }
+function doDeleteDistribution(){
+  const d = db.distributions.find(x=>x.id===distPendingDelete);
+  if(d){
+    d.deleted = true;
+    d.updatedAt = Date.now();
+    saveDB();
+    renderFamilyDist(d.familyId);
+    renderHome();
+    showToast('🗑️ تم حذف التوزيع');
+  }
+  closeDeleteDistModal();
+}
+/* ===== END FEATURE: تعديل/حذف التوزيع ===== */
+
 function closeDistModal(){
   document.getElementById('distModalBg').classList.remove('show');
   document.getElementById('distModalBg').dataset.fixedFam = '';
   document.getElementById('distModalBg').dataset.bulk = ''; // FEATURE: توزيع جماعي
+  document.getElementById('distModalTitle').textContent = '📦 تسجيل توزيع مساعدة'; // FEATURE: تعديل/حذف التوزيع
   document.getElementById('distModalSub').textContent = 'اختر العائلة ونوع المساعدة';
+  document.getElementById('distSaveBtn').textContent = '✅ تأكيد التوزيع'; // FEATURE: تعديل/حذف التوزيع
+  document.getElementById('distFamPicker').style.display=''; // FEATURE: تعديل/حذف التوزيع - رجوع الظهور الافتراضي
   document.getElementById('d_qty').value='';
   document.getElementById('d_notes').value='';
+  editingDistId = null; // FEATURE: تعديل/حذف التوزيع
 }
 function saveDistribution(){
-  const isBulk = document.getElementById('distModalBg').dataset.bulk === '1'; // FEATURE: توزيع جماعي
   const type = document.getElementById('d_type').value;
   const qty = document.getElementById('d_qty').value.trim();
   const date = document.getElementById('d_date').value || new Date().toISOString().slice(0,10);
   const notes = document.getElementById('d_notes').value.trim();
+
+  if(editingDistId){
+    /* ===== FEATURE: تعديل/حذف التوزيع - مسار التعديل ===== */
+    const d = db.distributions.find(x=>x.id===editingDistId);
+    if(!d){ showToast('⚠️ ما لقيت التوزيع'); closeDistModal(); return; }
+    d.type = type; d.qty = qty; d.date = date; d.notes = notes; d.updatedAt = Date.now();
+    saveDB();
+    const famId = d.familyId;
+    closeDistModal();
+    showToast('✅ تم حفظ التعديل');
+    renderFamilyDist(famId);
+    renderHome();
+    return;
+    /* ===== END FEATURE: تعديل/حذف التوزيع ===== */
+  }
+
+  const isBulk = document.getElementById('distModalBg').dataset.bulk === '1'; // FEATURE: توزيع جماعي
 
   if(isBulk){
     /* ===== FEATURE: توزيع جماعي - تسجيل لكل العائلات المحددة ===== */
