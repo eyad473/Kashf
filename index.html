@@ -296,7 +296,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.1</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.2</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -514,10 +514,10 @@
         <div class="stat-card"><div class="num" id="rDist">0</div><div class="lbl">توزيعات مسجّلة</div></div>
       </div>
 
-      <button class="big-btn" onclick="exportFamiliesCSV()"><span class="icon">📤</span> تصدير كشف العائلات (Excel)</button>
+      <button class="big-btn" onclick="openExportColsModal('xlsx')"><span class="icon">📤</span> تصدير كشف العائلات (Excel)</button>
       <button class="big-btn secondary" onclick="exportDistCSV()"><span class="icon">📤</span> تصدير سجل التوزيعات (Excel)</button>
       <!-- ===== FEATURE: تصدير الكشف كامل PDF ===== -->
-      <button class="big-btn secondary" onclick="exportRegistryPDF()"><span class="icon">📄</span> تصدير الكشف الكامل PDF</button>
+      <button class="big-btn secondary" onclick="openExportColsModal('pdf')"><span class="icon">📄</span> تصدير الكشف الكامل PDF</button>
       <!-- ===== END FEATURE: تصدير الكشف كامل PDF ===== -->
       <button class="big-btn outline" onclick="exportBackupJSON()"><span class="icon">🗄️</span> نسخة احتياطية كاملة</button>
 
@@ -792,6 +792,21 @@
   </div>
   <!-- ===== END FEATURE: كاشف التكرار ===== -->
 
+  <!-- ===== FEATURE: نظام تصدير موحد (كل الأعمدة أو تحديد يدوي) ===== -->
+  <div class="modal-bg" id="exportColsModalBg">
+    <div class="modal">
+      <h3 id="exportColsTitle">📤 تصدير الكشف</h3>
+      <button onclick="startExport('all')" style="width:100%; padding:14px; border-radius:12px; border:none; background:var(--accent); color:#08130d; font-weight:700; margin-bottom:16px;">📋 تصدير كل الأعمدة</button>
+      <div class="section-title"><span>أو حدد أعمدة معينة بس</span><span class="line"></span></div>
+      <div id="exportColsList" style="max-height:280px; overflow-y:auto; margin-bottom:14px;"></div>
+      <div class="action-row">
+        <button onclick="closeExportColsModal()">إلغاء</button>
+        <button onclick="startExport('custom')" style="background:var(--accent); color:#08130d; font-weight:700;">تصدير المحدد</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: نظام تصدير موحد ===== -->
+
   <!-- ===== FEATURE: طباعة PDF لملف العائلة (مخفي، بيظهر بس وقت الطباعة الفعلية) ===== -->
   <div id="printArea"></div>
   <!-- ===== END FEATURE: طباعة PDF لملف العائلة ===== -->
@@ -801,7 +816,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '7.1'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '7.2'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1575,26 +1590,60 @@ function closeDuplicateFinder(){
 }
 /* ===== END FEATURE: كاشف التكرار ===== */
 
-/* ===== FEATURE: تصدير الكشف كامل PDF ===== */
-async function exportRegistryPDF(){
-  const { headers, rows } = buildFamiliesTableData(); // FEATURE: نفس أعمدة تصدير الإكسل (بما فيها الحقول المخصصة)
-  if(rows.length === 0){ showToast('⚠️ ما في عائلات بهاد الكشف'); return; }
+/* ===== FEATURE: نظام تصدير موحد (كل الأعمدة أو تحديد يدوي) - PDF أو Excel ===== */
+let exportFormatChoice = null;
+function openExportColsModal(format){
+  exportFormatChoice = format;
+  document.getElementById('exportColsTitle').textContent = format === 'xlsx' ? '📤 تصدير Excel' : '📄 تصدير PDF';
+  const { headers } = buildFamiliesTableData();
+  const box = document.getElementById('exportColsList');
+  box.innerHTML = headers.map((h,i) => `
+    <label style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);">
+      <input type="checkbox" class="exportColCheck" value="${i}" checked style="width:18px; height:18px; flex-shrink:0;">
+      <span>${escapeHtml(h)}</span>
+    </label>`).join('');
+  document.getElementById('exportColsModalBg').classList.add('show');
+}
+function closeExportColsModal(){
+  document.getElementById('exportColsModalBg').classList.remove('show');
+}
+function startExport(mode){
+  const { headers, rows } = buildFamiliesTableData();
+  if(rows.length === 0){ showToast('⚠️ ما في عائلات بهاد الكشف'); closeExportColsModal(); return; }
 
-  // نشيل أي عمود فاضي بالكامل بكل الصفوف
-  const keepIdx = headers.map((h,i) => i).filter(i => rows.some(r => String(r[i]==null?'':r[i]).trim() !== ''));
-  const finalHeaders = keepIdx.map(i=>headers[i]);
-  const finalRows = rows.map(r => keepIdx.map(i=>r[i]));
+  let selIdx;
+  if(mode === 'all'){
+    selIdx = headers.map((_,i)=>i);
+  }else{
+    selIdx = [...document.querySelectorAll('.exportColCheck:checked')].map(el=>parseInt(el.value,10));
+    if(selIdx.length === 0){ showToast('⚠️ اختار عمود واحد ع الأقل'); return; }
+  }
+  selIdx = selIdx.filter(i => rows.some(r => String(r[i]==null?'':r[i]).trim() !== '')); // نشيل أي عمود فاضي بالكامل من ضمن المحدد
+  if(selIdx.length === 0){ showToast('⚠️ الأعمدة يلي اخترتها كلها فاضية'); return; }
 
+  const finalHeaders = selIdx.map(i=>headers[i]);
+  const finalRows = rows.map(r => selIdx.map(i=>r[i]));
+  closeExportColsModal();
+
+  if(exportFormatChoice === 'xlsx') exportSelectedXLSX(finalHeaders, finalRows);
+  else exportSelectedPDF(finalHeaders, finalRows);
+}
+async function exportSelectedXLSX(headers, rows){
+  try{
+    await downloadXLSX('كشف_العائلات_'+todayStr()+'.xlsx', headers, rows);
+    showToast('📤 تم تصدير كشف العائلات (Excel)');
+  }catch(err){
+    downloadCSV('كشف_العائلات_'+todayStr()+'.csv', [headers, ...rows]);
+    showToast('📤 تم التصدير كـ CSV (المتصفح ما بيدعم xlsx مباشرة)');
+  }
+}
+function exportSelectedPDF(finalHeaders, finalRows){
   const reg = activeRegistry();
   const today = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
-
   const theadHtml = '<tr>' + finalHeaders.map(h=>`<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
   const tbodyHtml = finalRows.map(r => '<tr>' + r.map(v=>`<td>${escapeHtml(String(v==null?'':v))}</td>`).join('') + '</tr>').join('');
-
-  // عرض أوسع لو الأعمدة كتير حتى تضل النصوص مقروءة
-  const capturingWidth = Math.max(780, finalHeaders.length * 130);
+  const capturingWidth = Math.max(780, finalHeaders.length * 130); // عرض أوسع لو الأعمدة كتير حتى تضل النصوص مقروءة
   document.getElementById('printArea').style.width = capturingWidth + 'px';
-
   document.getElementById('printArea').innerHTML = `
     <div class="print-header">
       <div>
@@ -1610,7 +1659,7 @@ async function exportRegistryPDF(){
   `;
   generateFamilyPDFFile(appName() + (reg? ' - '+reg.name : ''));
 }
-/* ===== END FEATURE: تصدير الكشف كامل PDF ===== */
+/* ===== END FEATURE: نظام تصدير موحد ===== */
 
 function openEditDistribution(distId){
   const d = db.distributions.find(x=>x.id===distId && !x.deleted);
@@ -1912,16 +1961,6 @@ function buildDistTableData(){
     return [f?f.name:'(محذوفة)', f?f.tent||'':'', d.type, d.qty||'', d.date, d.notes||''];
   });
   return { headers, rows };
-}
-async function exportFamiliesCSV(){
-  const { headers, rows } = buildFamiliesTableData();
-  try{
-    await downloadXLSX('كشف_العائلات_'+todayStr()+'.xlsx', headers, rows);
-    showToast('📤 تم تصدير كشف العائلات (Excel)');
-  }catch(err){
-    downloadCSV('كشف_العائلات_'+todayStr()+'.csv', [headers, ...rows]);
-    showToast('📤 تم التصدير كـ CSV (المتصفح ما بيدعم xlsx مباشرة)');
-  }
 }
 async function exportDistCSV(){
   const { headers, rows } = buildDistTableData();
