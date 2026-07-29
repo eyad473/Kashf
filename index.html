@@ -295,7 +295,7 @@
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.2</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.3</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -751,7 +751,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '6.2'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '6.3'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1348,8 +1348,8 @@ function printFamilyPDF(id){
     document.title = originalTitle;
     window.removeEventListener('afterprint', restoreTitle);
   });
-  setTimeout(()=>{ document.title = originalTitle; }, 5000); // حماية احتياطية لو afterprint ما اشتغل (بعض متصفحات آيفون)
-  window.print();
+  setTimeout(()=>{ document.title = originalTitle; }, 8000); // حماية احتياطية لو afterprint ما اشتغل (بعض متصفحات آيفون)
+  setTimeout(()=>{ window.print(); }, 100); // مهلة بسيطة حتى يسجل المتصفح اسم الصفحة الجديد قبل ما يفتح معاينة الطباعة
 }
 /* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
 
@@ -2612,6 +2612,10 @@ function closeUpdatedModal(){
   document.getElementById('updatedModalBg').classList.remove('show');
 }
 checkVersionChanged();
+// FEATURE: تنظيف الرابط من ?refresh= بعد التحديث حتى يضل نظيف (يفيد كمان لما يظهر برابط الطباعة)
+if(window.location.search.includes('refresh=')){
+  window.history.replaceState({}, '', window.location.pathname);
+}
 /* ========================= END FEATURE: تأكيد نجاح التحديث ========================= */
 
 /* ========================= FEATURE: تخزين الخط العربي دائماً (يعمل بدون إنترنت بعد أول تحميل) ========================= */
