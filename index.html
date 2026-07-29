@@ -230,6 +230,33 @@
   .modal h3{ margin:0 0 6px; }
   .modal p{ color:var(--text-dim); font-size:14px; margin-bottom:18px; }
   .modal .action-row button{ padding:15px; font-size:15px; }
+  /* ===== FEATURE: طباعة PDF لملف العائلة ===== */
+  #printArea{ display:none; }
+  @media print{
+    body *{ visibility:hidden; }
+    #printArea, #printArea *{ visibility:visible; }
+    #printArea{
+      display:block; position:absolute; top:0; right:0; left:0; width:100%;
+      background:#fff; color:#111; font-family:"Cairo","Tahoma",sans-serif; direction:rtl; padding:0;
+    }
+    .print-header{
+      display:flex; align-items:center; justify-content:space-between; gap:14px;
+      border-bottom:3px solid #2c8352; padding-bottom:14px; margin-bottom:22px;
+    }
+    .print-header h1{ font-size:22px; margin:0; color:#16241c; }
+    .print-header .sub{ font-size:12px; color:#666; margin-top:3px; }
+    .print-family-name{ font-size:28px; font-weight:800; color:#2c8352; margin-bottom:18px; text-align:center; }
+    .print-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid #ddd; border-radius:8px; overflow:hidden; margin-bottom:22px; }
+    .print-cell{ padding:10px 14px; border-bottom:1px solid #eee; border-left:1px solid #eee; display:flex; justify-content:space-between; gap:10px; font-size:13.5px; }
+    .print-cell .k{ color:#666; }
+    .print-cell .v{ font-weight:700; color:#111; }
+    .print-section-title{ font-size:15px; font-weight:800; color:#2c8352; margin:22px 0 10px; border-bottom:1px solid #ccc; padding-bottom:6px; }
+    .print-dist-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+    .print-dist-table th{ background:#f0f4f2; color:#333; text-align:right; padding:8px 10px; border:1px solid #ddd; }
+    .print-dist-table td{ padding:7px 10px; border:1px solid #eee; }
+    .print-footer{ margin-top:34px; text-align:center; font-size:11px; color:#999; border-top:1px solid #eee; padding-top:12px; }
+  }
+  /* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
 </style>
 </head>
 <body>
@@ -253,7 +280,7 @@
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 5.9</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.0</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -399,6 +426,10 @@
       <div class="info-grid" id="detailInfo"></div>
 
       <button class="big-btn" onclick="openDistributeFor(currentFamilyId)"><span class="icon">📦</span> تسجيل توزيع لهذه العائلة</button>
+
+      <!-- ===== FEATURE: طباعة PDF لملف العائلة ===== -->
+      <button class="big-btn secondary" onclick="printFamilyPDF(currentFamilyId)"><span class="icon">🖨️</span> طباعة / حفظ PDF</button>
+      <!-- ===== END FEATURE: طباعة PDF لملف العائلة ===== -->
 
       <div class="action-row">
         <button onclick="editFamily(currentFamilyId)">✏️ تعديل بيانات</button>
@@ -696,12 +727,16 @@
   </div>
   <!-- ===== END FEATURE: تعديل/حذف التوزيع ===== -->
 
+  <!-- ===== FEATURE: طباعة PDF لملف العائلة (مخفي، بيظهر بس وقت الطباعة الفعلية) ===== -->
+  <div id="printArea"></div>
+  <!-- ===== END FEATURE: طباعة PDF لملف العائلة ===== -->
+
 </div>
 
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '5.9'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '6.0'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1239,6 +1274,62 @@ function openBulkDistribute(){
 }
 /* ===== END FEATURE: توزيع جماعي ===== */
 /* ===== FEATURE: تعديل/حذف التوزيع ===== */
+/* ===== FEATURE: طباعة PDF لملف العائلة ===== */
+function printFamilyPDF(id){
+  const f = db.families.find(x=>x.id===id);
+  if(!f) return;
+  const dists = db.distributions.filter(d=>d.familyId===id && !d.deleted).sort((a,b)=>b.ts-a.ts);
+  const reg = activeRegistry();
+  const now = new Date();
+  const printDate = now.toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+
+  const baseFields = [
+    ['رقم الهاتف', f.phone||'—'],
+    ['الخيمة / الموقع', f.tent||'—'],
+    ['عدد الأفراد', Number.isFinite(f.count) ? f.count : '—'],
+    ['عدد الأطفال', f.children||0],
+    ['حالات خاصة', f.special||0],
+    ['تاريخ التسجيل', f.createdAt||'—'],
+  ];
+  if(f.tag && TAG_INFO[f.tag]) baseFields.push(['التصنيف', TAG_INFO[f.tag].label || f.tag]);
+  const extraFields = (f.extra && typeof f.extra === 'object')
+    ? Object.keys(f.extra).filter(k=>f.extra[k]).map(k => [k, f.extra[k]])
+    : [];
+  const allFields = baseFields.concat(extraFields);
+
+  const gridHtml = allFields.map(([k,v]) =>
+    `<div class="print-cell"><span class="k">${escapeHtml(String(k))}</span><span class="v">${escapeHtml(String(v))}</span></div>`
+  ).join('');
+
+  const notesHtml = f.notes
+    ? `<div class="print-section-title">ملاحظات</div><p style="font-size:13px; color:#333;">${escapeHtml(f.notes)}</p>`
+    : '';
+
+  const distHtml = dists.length === 0
+    ? '<p style="font-size:13px; color:#888;">ما في توزيعات مسجّلة لهذه العائلة</p>'
+    : `<table class="print-dist-table">
+        <thead><tr><th>التاريخ</th><th>نوع المساعدة</th><th>الكمية</th><th>ملاحظات</th></tr></thead>
+        <tbody>${dists.map(d => `<tr><td>${d.date}</td><td>${escapeHtml(d.type)}</td><td>${escapeHtml(d.qty||'—')}</td><td>${escapeHtml(d.notes||'—')}</td></tr>`).join('')}</tbody>
+      </table>`;
+
+  document.getElementById('printArea').innerHTML = `
+    <div class="print-header">
+      <div>
+        <h1>📋 كشف المخيم${reg? ' — '+escapeHtml(reg.name):''}</h1>
+        <div class="sub">تاريخ الطباعة: ${printDate}</div>
+      </div>
+    </div>
+    <div class="print-family-name">${escapeHtml(f.name)}</div>
+    <div class="print-grid">${gridHtml}</div>
+    ${notesHtml}
+    <div class="print-section-title">سجل التوزيعات (${dists.length})</div>
+    ${distHtml}
+    <div class="print-footer">© 2026 جميع الحقوق محفوظة لـ أبو عمر البيك</div>
+  `;
+  window.print();
+}
+/* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
+
 function openEditDistribution(distId){
   const d = db.distributions.find(x=>x.id===distId && !x.deleted);
   if(!d) return;
