@@ -232,31 +232,32 @@
   .modal .action-row button{ padding:15px; font-size:15px; }
   /* ===== FEATURE: طباعة PDF لملف العائلة ===== */
   #printArea{ display:none; }
+  #printArea.capturing{
+    display:block; position:fixed; top:-9999px; right:0; width:780px; z-index:-1;
+    background:#fff; color:#111; font-family:"Cairo","Tahoma",sans-serif; direction:rtl; padding:24px;
+  }
+  .print-header{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    border-bottom:3px solid #2c8352; padding-bottom:14px; margin-bottom:22px;
+  }
+  .print-header h1{ font-size:22px; margin:0; color:#16241c; }
+  .print-header .sub{ font-size:12px; color:#666; margin-top:3px; }
+  .print-family-name{ font-size:28px; font-weight:800; color:#2c8352; margin-bottom:18px; text-align:center; }
+  .print-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid #ddd; border-radius:8px; overflow:hidden; margin-bottom:22px; }
+  .print-cell{ padding:10px 14px; border-bottom:1px solid #eee; border-left:1px solid #eee; display:flex; justify-content:space-between; gap:10px; font-size:13.5px; }
+  .print-cell .k{ color:#666; }
+  .print-cell .v{ font-weight:700; color:#111; }
+  .print-section-title{ font-size:15px; font-weight:800; color:#2c8352; margin:22px 0 10px; border-bottom:1px solid #ccc; padding-bottom:6px; }
+  .print-dist-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  .print-dist-table th{ background:#f0f4f2; color:#333; text-align:right; padding:8px 10px; border:1px solid #ddd; }
+  .print-dist-table td{ padding:7px 10px; border:1px solid #eee; }
+  .print-footer{ margin-top:34px; text-align:center; font-size:11px; color:#999; border-top:1px solid #eee; padding-top:12px; }
+  /* احتياط: طباعة عادية بالمتصفح لو مكتبات الـPDF المباشر ما توفرت (أول استخدام بدون نت) */
   @media print{
-    @page{ margin:14mm 12mm; }
-    /* إخفاء قطعي (display:none) بدل visibility — عناصر position:fixed/sticky زي الهيدر وشريط التنقل بتسبب مربعات سودة بالطباعة لو اتخفت بـvisibility بس */
     header, nav, main{ display:none !important; }
     .modal-bg{ display:none !important; }
     body, html{ background:#fff !important; }
-    #printArea{
-      display:block !important; background:#fff; color:#111; font-family:"Cairo","Tahoma",sans-serif; direction:rtl; padding:0;
-    }
-    .print-header{
-      display:flex; align-items:center; justify-content:space-between; gap:14px;
-      border-bottom:3px solid #2c8352; padding-bottom:14px; margin-bottom:22px;
-    }
-    .print-header h1{ font-size:22px; margin:0; color:#16241c; }
-    .print-header .sub{ font-size:12px; color:#666; margin-top:3px; }
-    .print-family-name{ font-size:28px; font-weight:800; color:#2c8352; margin-bottom:18px; text-align:center; }
-    .print-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid #ddd; border-radius:8px; overflow:hidden; margin-bottom:22px; }
-    .print-cell{ padding:10px 14px; border-bottom:1px solid #eee; border-left:1px solid #eee; display:flex; justify-content:space-between; gap:10px; font-size:13.5px; }
-    .print-cell .k{ color:#666; }
-    .print-cell .v{ font-weight:700; color:#111; }
-    .print-section-title{ font-size:15px; font-weight:800; color:#2c8352; margin:22px 0 10px; border-bottom:1px solid #ccc; padding-bottom:6px; }
-    .print-dist-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
-    .print-dist-table th{ background:#f0f4f2; color:#333; text-align:right; padding:8px 10px; border:1px solid #ddd; }
-    .print-dist-table td{ padding:7px 10px; border:1px solid #eee; }
-    .print-footer{ margin-top:34px; text-align:center; font-size:11px; color:#999; border-top:1px solid #eee; padding-top:12px; }
+    #printArea{ display:block !important; position:static !important; top:auto !important; width:auto !important; z-index:auto !important; }
   }
   /* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
 </style>
@@ -295,7 +296,7 @@
     <div class="title-row">
       <div>
         <h1>📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.3</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 6.4</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -751,7 +752,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '6.3'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '6.4'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1341,15 +1342,54 @@ function printFamilyPDF(id){
     ${distHtml}
     <div class="print-footer">© 2026 جميع الحقوق محفوظة لـ أبو عمر البيك</div>
   `;
-  // FEATURE: اسم ملف الـPDF المقترح = اسم العائلة (المتصفح بياخد عنوان الصفحة كاسم افتراضي وقت "حفظ كـ PDF")
-  const originalTitle = document.title;
-  document.title = f.name;
-  window.addEventListener('afterprint', function restoreTitle(){
-    document.title = originalTitle;
-    window.removeEventListener('afterprint', restoreTitle);
-  });
-  setTimeout(()=>{ document.title = originalTitle; }, 8000); // حماية احتياطية لو afterprint ما اشتغل (بعض متصفحات آيفون)
-  setTimeout(()=>{ window.print(); }, 100); // مهلة بسيطة حتى يسجل المتصفح اسم الصفحة الجديد قبل ما يفتح معاينة الطباعة
+  generateFamilyPDFFile(f.name);
+}
+
+async function generateFamilyPDFFile(familyName){
+  showToast('⏳ جاري تجهيز الملف...');
+  const [ok1, ok2] = await Promise.all([ensureLib('html2canvas'), ensureLib('jspdf')]);
+  if(!ok1 || !ok2){
+    // احتياط: أول استخدام وما في نت لتجهيز المكتبات — نرجع لطريقة الطباعة العادية بالمتصفح
+    showToast('⚠️ أول استخدام لهاي الميزة محتاج نت لمرة وحدة بس. رح نستخدم الطباعة العادية هلق.');
+    printViaFallback();
+    return;
+  }
+
+  const printEl = document.getElementById('printArea');
+  printEl.classList.add('capturing');
+  try{
+    const canvas = await window.html2canvas(printEl, { scale:2, backgroundColor:'#ffffff', useCORS:true });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageW = 210, pageH = 297, margin = 10;
+    const imgW = pageW - margin*2;
+    const imgH = canvas.height * imgW / canvas.width;
+    let heightLeft = imgH;
+    let position = margin;
+    pdf.addImage(imgData, 'JPEG', margin, position, imgW, imgH);
+    heightLeft -= (pageH - margin*2);
+    while(heightLeft > 0){
+      position = heightLeft - imgH + margin;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', margin, position, imgW, imgH);
+      heightLeft -= pageH;
+    }
+    pdf.save(familyName + '.pdf');
+    showToast('✅ تم حفظ الملف');
+  }catch(err){
+    showToast('⚠️ صار خطأ بتجهيز الملف، رح نستخدم الطباعة العادية');
+    printViaFallback();
+  }finally{
+    printEl.classList.remove('capturing');
+  }
+}
+
+function printViaFallback(){
+  // ===== FEATURE: احتياط - طباعة عادية بالمتصفح (النسخة القديمة) لو مكتبات الـPDF المباشر ما توفرت =====
+  document.body.classList.add('printing-fallback');
+  window.print();
+  setTimeout(()=>{ document.body.classList.remove('printing-fallback'); }, 1000);
 }
 /* ===== END FEATURE: طباعة PDF لملف العائلة ===== */
 
@@ -2668,6 +2708,35 @@ async function setupArabicFont(){
 }
 setupArabicFont();
 /* ========================= END FEATURE: تخزين الخط العربي دائماً ========================= */
+
+/* ========================= FEATURE: تخزين مكتبات إنشاء PDF دائماً (تحميل مرة وحدة فقط) ========================= */
+const LIB_URLS = {
+  html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+};
+async function ensureLib(name){
+  const globalCheck = name === 'html2canvas' ? window.html2canvas : (window.jspdf && window.jspdf.jsPDF);
+  if(globalCheck) return true; // محملة أصلاً بهاي الجلسة
+
+  const cacheKey = 'kashf_lib_' + name;
+  let code = null;
+  try{ code = localStorage.getItem(cacheKey); }catch(e){}
+
+  if(!code){
+    if(!navigator.onLine) return false; // أول استخدام وما في نت — ما نقدر نجيبها هلق
+    try{
+      const res = await fetch(LIB_URLS[name]);
+      if(!res.ok) return false;
+      code = await res.text();
+      localStorage.setItem(cacheKey, code); // تخزين دائم — ما رح نحتاج نحمّلها مرة تانية أبداً
+    }catch(e){ return false; }
+  }
+  try{
+    (0, eval)(code); // تنفيذ المكتبة بالنطاق العام حتى تصير متوفرة كـ window.html2canvas / window.jspdf
+    return true;
+  }catch(e){ return false; }
+}
+/* ========================= END FEATURE: تخزين مكتبات إنشاء PDF ========================= */
 
 checkForUpdate();
 window.addEventListener('online', checkForUpdate);
