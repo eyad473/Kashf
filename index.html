@@ -296,7 +296,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.0</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.1</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -801,7 +801,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '7.0'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '7.1'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1362,6 +1362,7 @@ function openBulkDistribute(){
 /* ===== FEATURE: تعديل/حذف التوزيع ===== */
 /* ===== FEATURE: طباعة PDF لملف العائلة ===== */
 function printFamilyPDF(id){
+  document.getElementById('printArea').style.width = ''; // FEATURE: رجوع للعرض الافتراضي (تحسباً من تصدير الكشف الكامل)
   const f = db.families.find(x=>x.id===id);
   if(!f) return;
   const dists = db.distributions.filter(d=>d.familyId===id && !d.deleted).sort((a,b)=>b.ts-a.ts);
@@ -1523,38 +1524,51 @@ function normalizeArabicWord(w){
     .replace(/ة/g, 'ه')
     .replace(/[\u064B-\u065F]/g, ''); // إزالة التشكيل
 }
-function nameSimilarity(a, b){
-  const wordsA = (a||'').trim().split(/\s+/).filter(Boolean).map(normalizeArabicWord);
-  const wordsB = (b||'').trim().split(/\s+/).filter(Boolean).map(normalizeArabicWord);
-  if(wordsA.length===0 || wordsB.length===0) return 0;
-  const setA = new Set(wordsA), setB = new Set(wordsB);
-  let common = 0;
-  setA.forEach(w => { if(setB.has(w)) common++; });
-  const union = new Set([...setA, ...setB]).size;
-  return common / union; // نسبة تشابه (Jaccard) على مستوى الكلمات، بعد تطبيع الهمزات والتاء المربوطة
+function normalizeFullName(name){
+  return (name||'').trim().split(/\s+/).filter(Boolean).map(normalizeArabicWord).join(' ');
 }
 function openDuplicateFinder(){
   const fams = familiesInActiveRegistry();
-  const pairs = [];
-  for(let i=0;i<fams.length;i++){
-    for(let j=i+1;j<fams.length;j++){
-      const sim = nameSimilarity(fams[i].name, fams[j].name);
-      if(sim >= 0.6) pairs.push({ a:fams[i], b:fams[j], sim });
-    }
-  }
-  pairs.sort((x,y)=>y.sim-x.sim);
+  const groups = {};
+  fams.forEach(f => {
+    const norm = normalizeFullName(f.name);
+    if(!norm) return;
+    (groups[norm] = groups[norm] || []).push(f);
+  });
+  const dupGroups = Object.values(groups).filter(g => g.length > 1);
   const box = document.getElementById('dupFinderResults');
-  box.innerHTML = pairs.length === 0
-    ? '<div class="empty-state" style="padding:20px 0;">✅ ما لقينا أي تكرار محتمل بهاد الكشف</div>'
-    : pairs.map(p => `
-      <div class="fam-card" style="margin-bottom:10px;">
-        <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:8px;">تشابه ${Math.round(p.sim*100)}%</div>
-        <div class="action-row">
-          <button onclick="closeDuplicateFinder(); openDetail('${p.a.id}');">${escapeHtml(p.a.name)}</button>
-          <button onclick="closeDuplicateFinder(); openDetail('${p.b.id}');">${escapeHtml(p.b.name)}</button>
-        </div>
-      </div>`).join('');
+  box.innerHTML = dupGroups.length === 0
+    ? '<div class="empty-state" style="padding:20px 0;">✅ ما لقينا أي اسم مطابق تماماً بهاد الكشف</div>'
+    : dupGroups.map(g => {
+        g.sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+        const idsCsv = g.map(f=>f.id).join(',');
+        return `
+        <div class="fam-card" style="margin-bottom:10px;">
+          <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:8px;">اسم مطابق تماماً (${g.length} سجلات)</div>
+          ${g.map(f => `<div class="action-row" style="margin-bottom:4px;"><button onclick="closeDuplicateFinder(); openDetail('${f.id}');" style="flex:1;">${escapeHtml(f.name)}${f.tent? ' — '+escapeHtml(f.tent):''}${f.phone? ' — '+escapeHtml(f.phone):''}</button></div>`).join('')}
+          <button onclick="confirmMergeDuplicates('${idsCsv}')" style="width:100%; margin-top:8px; background:var(--accent); color:#08130d; font-weight:700; border:none; border-radius:10px; padding:10px; cursor:pointer;">🔗 دمج الكل بعائلة وحدة</button>
+        </div>`;
+      }).join('');
   document.getElementById('dupFinderBg').classList.add('show');
+}
+function confirmMergeDuplicates(idsCsv){
+  const ids = idsCsv.split(',');
+  const fams = ids.map(id => db.families.find(f=>f.id===id)).filter(Boolean);
+  if(fams.length < 2) return;
+  const keep = fams[0]; // الأقدم تسجيلاً (رتّبناهم قبل)
+  const removeIds = fams.slice(1).map(f=>f.id);
+  if(!confirm(`رح يتدمج ${fams.length} سجلات بعائلة وحدة (بيتحفظ سجل "${keep.name}"، وباقي التوزيعات بتنضاف إله). الباقي بينحذف. متأكد؟`)){
+    return;
+  }
+  removeIds.forEach(rid => {
+    db.distributions.forEach(d => { if(d.familyId === rid && !d.deleted){ d.familyId = keep.id; d.updatedAt = Date.now(); } });
+    const rf = db.families.find(f=>f.id===rid);
+    if(rf){ rf.deleted = true; rf.updatedAt = Date.now(); }
+  });
+  keep.updatedAt = Date.now();
+  saveDB();
+  showToast('✅ تم الدمج بنجاح');
+  openDuplicateFinder(); // إعادة رسم القائمة بعد الدمج
 }
 function closeDuplicateFinder(){
   document.getElementById('dupFinderBg').classList.remove('show');
@@ -1563,31 +1577,34 @@ function closeDuplicateFinder(){
 
 /* ===== FEATURE: تصدير الكشف كامل PDF ===== */
 async function exportRegistryPDF(){
-  const fams = familiesInActiveRegistry();
-  if(fams.length === 0){ showToast('⚠️ ما في عائلات بهاد الكشف'); return; }
+  const { headers, rows } = buildFamiliesTableData(); // FEATURE: نفس أعمدة تصدير الإكسل (بما فيها الحقول المخصصة)
+  if(rows.length === 0){ showToast('⚠️ ما في عائلات بهاد الكشف'); return; }
+
+  // نشيل أي عمود فاضي بالكامل بكل الصفوف
+  const keepIdx = headers.map((h,i) => i).filter(i => rows.some(r => String(r[i]==null?'':r[i]).trim() !== ''));
+  const finalHeaders = keepIdx.map(i=>headers[i]);
+  const finalRows = rows.map(r => keepIdx.map(i=>r[i]));
+
   const reg = activeRegistry();
   const today = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
 
-  const rowsHtml = fams.map((f,i) => `
-    <tr>
-      <td>${i+1}</td>
-      <td>${escapeHtml(f.name)}</td>
-      <td>${escapeHtml(f.phone||'—')}</td>
-      <td>${escapeHtml(f.tent||'—')}</td>
-      <td>${Number.isFinite(f.count)?f.count:'—'}</td>
-      <td>${f.tag && TAG_INFO[f.tag] ? escapeHtml(TAG_INFO[f.tag].label) : '—'}</td>
-    </tr>`).join('');
+  const theadHtml = '<tr>' + finalHeaders.map(h=>`<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
+  const tbodyHtml = finalRows.map(r => '<tr>' + r.map(v=>`<td>${escapeHtml(String(v==null?'':v))}</td>`).join('') + '</tr>').join('');
+
+  // عرض أوسع لو الأعمدة كتير حتى تضل النصوص مقروءة
+  const capturingWidth = Math.max(780, finalHeaders.length * 130);
+  document.getElementById('printArea').style.width = capturingWidth + 'px';
 
   document.getElementById('printArea').innerHTML = `
     <div class="print-header">
       <div>
         <h1>📋 ${escapeHtml(appName())}${reg? ' — '+escapeHtml(reg.name):''}</h1>
-        <div class="sub">تاريخ التصدير: ${today} — إجمالي ${fams.length} عائلة</div>
+        <div class="sub">تاريخ التصدير: ${today} — إجمالي ${finalRows.length} عائلة</div>
       </div>
     </div>
     <table class="print-dist-table">
-      <thead><tr><th>#</th><th>الاسم</th><th>الهاتف</th><th>الخيمة/الموقع</th><th>عدد الأفراد</th><th>التصنيف</th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
+      <thead>${theadHtml}</thead>
+      <tbody>${tbodyHtml}</tbody>
     </table>
     <div class="print-footer">© 2026 جميع الحقوق محفوظة لـ أبو عمر البيك</div>
   `;
