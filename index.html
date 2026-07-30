@@ -297,7 +297,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.3</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.4</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -817,7 +817,7 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '7.3'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '7.4'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -2913,6 +2913,16 @@ function closeUpdatedModal(){
   document.getElementById('updatedModalBg').classList.remove('show');
 }
 checkVersionChanged();
+
+/* ========================= FEATURE: Service Worker - ضمان الفتح بدون إنترنت ========================= */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){
+      // فشل التسجيل بصمت (مثلاً لو التطبيق مفتوح كملف محلي مش من رابط حقيقي - Service Worker ما بيشتغل إلا من رابط حقيقي)
+    });
+  });
+}
+/* ========================= END FEATURE: Service Worker ========================= */
 // FEATURE: تنظيف الرابط من ?refresh= بعد التحديث حتى يضل نظيف (يفيد كمان لما يظهر برابط الطباعة)
 if(window.location.search.includes('refresh=')){
   window.history.replaceState({}, '', window.location.pathname);
