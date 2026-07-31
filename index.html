@@ -297,7 +297,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.3</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.5</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -849,7 +849,7 @@
 const DB_KEY = 'kashf_almukhayam_v1';
 const SYNC_URL = 'https://kashf-almukhayam-sync.eyad2000515.workers.dev'; // FEATURE: مزامنة بين الأجهزة
 const FIXED_SYNC_CODE = 'ABUAREEBAN-KASHF-2026'; // FEATURE: مزامنة تلقائية مخفية - نفس الرمز لكل الأجهزة يلي فاتحة هاد التطبيق تلقائياً
-const APP_VERSION = '8.3'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '8.5'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1206,18 +1206,33 @@ function editFamily(id){
 
 /* ========================= LIST / SEARCH ========================= */
 function findMatch(f, q){
-  // بيدور بكل معلومة مسجلة بالعائلة ويرجع أول حقل لقى فيه تطابق
-  const fields = [
-    { label:'الاسم', val: f.name },
+  const nq = normalizeArabicWord(q.trim());
+  if(!nq) return null;
+  const qWords = nq.split(/\s+/).filter(Boolean);
+
+  // فحص الاسم أولاً بمطابقة على مستوى الكلمات — كل كلمة بالبحث لازم تكون بداية كلمة بالاسم،
+  // بس مش لازم تكون متتابعة (يعني "كمال عيسى البيك" بتلاقي "كمال عيسى مصطفى البيك" حتى لو "مصطفى" بالنص)
+  const nvName = f.name ? normalizeArabicWord(String(f.name)) : '';
+  if(nvName){
+    if(nvName.startsWith(nq)) return { label:'الاسم', val:f.name, rank:1 }; // الاسم كامل بيبدأ بالبحث
+    const nameWords = nvName.split(/\s+/).filter(Boolean);
+    if(qWords.every(qw => nameWords.some(nw=>nw.startsWith(qw)))) return { label:'الاسم', val:f.name, rank:2 }; // كل كلمة بالبحث موجودة بالاسم (بأي مكان)
+    if(nvName.includes(nq)) return { label:'الاسم', val:f.name, rank:3 }; // موجود كنص متتابع بس مش بداية كلمة
+  }
+
+  // باقي الحقول (هاتف، خيمة، ملاحظات، حقول مخصصة) — مطابقة نصية عادية
+  const otherFields = [
     { label:'الهاتف', val: f.phone },
     { label:'الخيمة/الموقع', val: f.tent },
     { label:'ملاحظات', val: f.notes },
   ];
   if(f.extra){
-    Object.keys(f.extra).forEach(k => fields.push({ label:k, val: f.extra[k] }));
+    Object.keys(f.extra).forEach(k => otherFields.push({ label:k, val: f.extra[k] }));
   }
-  for(const item of fields){
-    if(item.val && String(item.val).includes(q)) return item;
+  for(const item of otherFields){
+    if(!item.val) continue;
+    const nv = normalizeArabicWord(String(item.val));
+    if(nv.includes(nq)) return { ...item, rank:4 };
   }
   return null;
 }
@@ -1270,7 +1285,10 @@ function renderList(){
   if(q) list = list.filter(x => x.match);
 
   // FEATURE: فرز
-  if(sortBy === 'name') list.sort((a,b)=> a.f.name.localeCompare(b.f.name,'ar'));
+  if(q){
+    // وقت البحث: الأولوية لدقة التطابق (الاسم يبدأ بالبحث أولاً)، وبعدين أبجدياً
+    list.sort((a,b)=> (a.match.rank - b.match.rank) || a.f.name.localeCompare(b.f.name,'ar'));
+  }else if(sortBy === 'name') list.sort((a,b)=> a.f.name.localeCompare(b.f.name,'ar'));
   else if(sortBy === 'date_desc') list.sort((a,b)=> (b.f.createdAt||'').localeCompare(a.f.createdAt||''));
   else if(sortBy === 'date_asc') list.sort((a,b)=> (a.f.createdAt||'').localeCompare(b.f.createdAt||''));
   else if(sortBy === 'count_desc') list.sort((a,b)=> (b.f.count||0) - (a.f.count||0));
