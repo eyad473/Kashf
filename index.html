@@ -820,9 +820,12 @@
       <h3 id="qrFamilyName">🔳 رمز العائلة</h3>
       <p style="font-size:13px; color:var(--text-dim);">امسح هاد الرمز بكاميرا الموبايل (من جهاز فيه التطبيق) حتى يفتح ملف العائلة مباشرة — مفيد بأيام التوزيع.</p>
       <div id="qrCodeBox" style="background:#fff; padding:16px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin:14px auto; width:fit-content;"></div>
-      <p style="font-size:12px; color:var(--text-dim);">اضغط ضغطة طويلة على الرمز واحفظه كصورة لو بدك تطبعه أو تشاركه.</p>
+      <p style="font-size:12px; color:var(--text-dim);">اضغط "تنزيل الصورة" تحت لحفظها بالمعرض، أو ضغطة طويلة على الرمز لو بدك.</p>
       <div class="action-row" style="margin-top:10px;">
         <button onclick="closeFamilyQR()">إغلاق</button>
+        <!-- ===== FEATURE: تنزيل صورة QR للمعرض ===== -->
+        <button onclick="downloadFamilyQRImage()" style="background:var(--accent); color:#08130d; font-weight:700;">⬇️ تنزيل الصورة</button>
+        <!-- ===== END FEATURE: تنزيل صورة QR للمعرض ===== -->
       </div>
     </div>
   </div>
@@ -840,6 +843,10 @@
       <p id="qrScanStatus" style="font-size:12.5px; color:var(--text-dim);"></p>
       <div class="action-row" style="margin-top:6px;">
         <button onclick="closeQRScanner()">إلغاء</button>
+        <!-- ===== FEATURE: اختيار صورة QR من معرض الصور ===== -->
+        <button onclick="document.getElementById('qrImageInput').click()" style="background:var(--accent); color:#08130d; font-weight:700;">🖼️ اختيار من الصور</button>
+        <input type="file" id="qrImageInput" accept="image/*" style="display:none;" onchange="handleQRImageFile(event)">
+        <!-- ===== END FEATURE: اختيار صورة QR من معرض الصور ===== -->
       </div>
     </div>
   </div>
@@ -1488,7 +1495,35 @@ async function showFamilyQR(id){
       }
     }
     if(!made) throw new Error('تعذر إنشاء الرمز بكل الأحجام المجرّبة');
-    document.getElementById('qrCodeBox').innerHTML = qr.createImgTag(6, 8);
+
+    // FEATURE: دمج اسم العائلة الكامل فوق رمز QR بنفس الصورة (حتى يضل الاسم ظاهر لو حفظت/شاركت الصورة لحالها)
+    const moduleCount = qr.getModuleCount();
+    const cellSize = 6;
+    const margin = 24;
+    const qrPixelSize = moduleCount * cellSize + margin * 2;
+    const nameFontSize = 24;
+    const nameAreaHeight = nameFontSize + 28;
+    const canvas = document.createElement('canvas');
+    canvas.width = qrPixelSize;
+    canvas.height = qrPixelSize + nameAreaHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#111111';
+    ctx.font = `bold ${nameFontSize}px Tahoma, Arial, sans-serif`;
+    ctx.fillText(f.name, canvas.width / 2, nameAreaHeight / 2 + 4);
+    for(let row = 0; row < moduleCount; row++){
+      for(let col = 0; col < moduleCount; col++){
+        ctx.fillStyle = qr.isDark(row, col) ? '#000000' : '#ffffff';
+        ctx.fillRect(margin + col * cellSize, nameAreaHeight + margin + row * cellSize, cellSize, cellSize);
+      }
+    }
+    document.getElementById('qrCodeBox').innerHTML =
+      `<img src="${canvas.toDataURL('image/png')}" alt="رمز العائلة ${escapeHtml(f.name)}" style="display:block; max-width:100%; height:auto;">`;
+    window.qrCurrentCanvas = canvas; // FEATURE: تنزيل صورة QR للمعرض - نحفظ الكانفاس الحالي
+    window.qrCurrentFamilyName = f.name;
     document.getElementById('qrFamilyName').textContent = '🔳 ' + f.name;
     document.getElementById('qrModalBg').classList.add('show');
   }catch(err){
@@ -1498,6 +1533,37 @@ async function showFamilyQR(id){
 function closeFamilyQR(){
   document.getElementById('qrModalBg').classList.remove('show');
 }
+/* ===== FEATURE: تنزيل صورة QR للمعرض ===== */
+async function downloadFamilyQRImage(){
+  const canvas = window.qrCurrentCanvas;
+  if(!canvas){ showToast('⚠️ ما في صورة جاهزة حالياً، افتح رمز العائلة وجرب تاني'); return; }
+  const safeName = (window.qrCurrentFamilyName || 'عائلة').replace(/[\\/:*?"<>|]/g,'').trim() || 'عائلة';
+  const filename = `رمز_${safeName}.png`;
+
+  canvas.toBlob(async (blob) => {
+    if(!blob){ showToast('⚠️ تعذر تجهيز الصورة للتنزيل'); return; }
+    const file = new File([blob], filename, { type:'image/png' });
+    const fallbackDownload = () => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('✅ تم تنزيل الصورة — لو ما ظهرت بالمعرض تلقائياً، لاقيها بمجلد التنزيلات');
+    };
+    try{
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        // FEATURE: نستخدم شاشة المشاركة لأنها بتعطي خيار "حفظ الصورة" اللي بينزلها مباشرة بمعرض الصور
+        await navigator.share({ files:[file], title: 'رمز عائلة ' + (window.qrCurrentFamilyName||'') });
+      } else {
+        fallbackDownload();
+      }
+    }catch(err){
+      if(err && err.name === 'AbortError') return; // المستخدم لغى المشاركة، عادي
+      fallbackDownload();
+    }
+  }, 'image/png');
+}
+/* ===== END FEATURE: تنزيل صورة QR للمعرض ===== */
 function openFamilyById(fid){ // FEATURE: دالة مشتركة بين الرابط العميق وماسح الكاميرا
   const f = db.families.find(x=>x.id===fid && !x.deleted);
   if(f){
@@ -1582,6 +1648,53 @@ function closeQRScanner(){
   if(video) video.srcObject = null;
 }
 /* ===== END FEATURE: مسح رمز QR بالكاميرا ===== */
+
+/* ===== FEATURE: اختيار صورة QR من معرض الصور ===== */
+async function handleQRImageFile(event){
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ''; // تصفير حتى يقدر يختار نفس الصورة تاني لو حبّ
+  if(!file) return;
+
+  document.getElementById('qrScanStatus').textContent = '⏳ جاري تجهيز قراءة الصورة...';
+  const ok = await ensureLib('jsQR');
+  if(!ok || typeof window.jsQR !== 'function'){
+    document.getElementById('qrScanStatus').textContent = '⚠️ هاي الميزة محتاجة نت لمرة وحدة بس لتجهيزها.';
+    return;
+  }
+
+  document.getElementById('qrScanStatus').textContent = '⏳ جاري البحث عن رمز QR بالصورة...';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      try{
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const result = window.jsQR(imageData.data, imageData.width, imageData.height);
+        if(result && result.data){
+          handleQRScanResult(result.data);
+        }else{
+          document.getElementById('qrScanStatus').textContent = '⚠️ ما لقينا رمز QR واضح بهاي الصورة. جرب صورة أوضح أو قرّب أكتر عليه.';
+        }
+      }catch(err){
+        document.getElementById('qrScanStatus').textContent = '⚠️ تعذرت قراءة الصورة. جرب صورة تانية.';
+      }
+    };
+    img.onerror = function(){
+      document.getElementById('qrScanStatus').textContent = '⚠️ ما قدرنا نفتح هاي الصورة.';
+    };
+    img.src = e.target.result;
+  };
+  reader.onerror = function(){
+    document.getElementById('qrScanStatus').textContent = '⚠️ ما قدرنا نقرا هاد الملف.';
+  };
+  reader.readAsDataURL(file);
+}
+/* ===== END FEATURE: اختيار صورة QR من معرض الصور ===== */
 
 function printFamilyPDF(id){
   document.getElementById('printArea').style.width = ''; // FEATURE: رجوع للعرض الافتراضي (تحسباً من تصدير الكشف الكامل)
