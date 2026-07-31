@@ -1496,24 +1496,45 @@ async function showFamilyQR(id){
     }
     if(!made) throw new Error('تعذر إنشاء الرمز بكل الأحجام المجرّبة');
 
-    // FEATURE: دمج اسم العائلة الكامل فوق رمز QR بنفس الصورة (حتى يضل الاسم ظاهر لو حفظت/شاركت الصورة لحالها)
+    // FEATURE: دمج اسم العائلة الكامل فوق رمز QR بنفس الصورة بخط "Cairo" الأنيق المستخدم بباقي التطبيق
     const moduleCount = qr.getModuleCount();
     const cellSize = 6;
     const margin = 24;
     const qrPixelSize = moduleCount * cellSize + margin * 2;
-    const nameFontSize = 24;
-    const nameAreaHeight = nameFontSize + 28;
+    let nameFontSize = 30;
+    const nameAreaHeight = nameFontSize + 46;
     const canvas = document.createElement('canvas');
     canvas.width = qrPixelSize;
     canvas.height = qrPixelSize + nameAreaHeight;
     const ctx = canvas.getContext('2d');
+
+    // نتأكد إن خط Cairo محمّل فعلياً قبل الرسم عالكانفس (وإلا بيرجع لخط النظام العادي)
+    try{
+      await document.fonts.load(`800 ${nameFontSize}px Cairo`);
+      await document.fonts.ready;
+    }catch(e){ /* لو تعذر تحميل الخط، منرسم بالخط الافتراضي وما بيوقف الميزة */ }
+
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#111111';
-    ctx.font = `bold ${nameFontSize}px Tahoma, Arial, sans-serif`;
-    ctx.fillText(f.name, canvas.width / 2, nameAreaHeight / 2 + 4);
+    ctx.fillStyle = '#16311f';
+    // نصغّر حجم الخط تلقائياً لو الاسم طويل حتى ما يخرج برا الصورة
+    const maxTextWidth = canvas.width - 40;
+    ctx.font = `800 ${nameFontSize}px "Cairo", Tahoma, Arial, sans-serif`;
+    while(ctx.measureText(f.name).width > maxTextWidth && nameFontSize > 16){
+      nameFontSize -= 2;
+      ctx.font = `800 ${nameFontSize}px "Cairo", Tahoma, Arial, sans-serif`;
+    }
+    ctx.fillText(f.name, canvas.width / 2, nameAreaHeight / 2 - 4);
+    // خط سفلي رفيع بلون التطبيق تحت الاسم لإضافة لمسة أنيقة
+    ctx.strokeStyle = '#3fae6b';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    const lineY = nameAreaHeight - 14;
+    ctx.moveTo(canvas.width/2 - 46, lineY);
+    ctx.lineTo(canvas.width/2 + 46, lineY);
+    ctx.stroke();
     for(let row = 0; row < moduleCount; row++){
       for(let col = 0; col < moduleCount; col++){
         ctx.fillStyle = qr.isDark(row, col) ? '#000000' : '#ffffff';
@@ -1542,25 +1563,11 @@ async function downloadFamilyQRImage(){
 
   canvas.toBlob(async (blob) => {
     if(!blob){ showToast('⚠️ تعذر تجهيز الصورة للتنزيل'); return; }
-    const file = new File([blob], filename, { type:'image/png' });
-    const fallbackDownload = () => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast('✅ تم تنزيل الصورة — لو ما ظهرت بالمعرض تلقائياً، لاقيها بمجلد التنزيلات');
-    };
-    try{
-      if(navigator.canShare && navigator.canShare({ files:[file] })){
-        // FEATURE: نستخدم شاشة المشاركة لأنها بتعطي خيار "حفظ الصورة" اللي بينزلها مباشرة بمعرض الصور
-        await navigator.share({ files:[file], title: 'رمز عائلة ' + (window.qrCurrentFamilyName||'') });
-      } else {
-        fallbackDownload();
-      }
-    }catch(err){
-      if(err && err.name === 'AbortError') return; // المستخدم لغى المشاركة، عادي
-      fallbackDownload();
-    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('✅ تم تنزيل الصورة — لاقيها بمجلد "التنزيلات/Downloads" أو بالمعرض حسب جهازك');
   }, 'image/png');
 }
 /* ===== END FEATURE: تنزيل صورة QR للمعرض ===== */
