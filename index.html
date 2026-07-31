@@ -297,7 +297,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.5</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.7</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -327,6 +327,9 @@
       <button class="big-btn" onclick="goto('addFamily')"><span class="icon">➕</span> تسجيل عائلة جديدة</button>
       <button class="big-btn secondary" onclick="openDistributeQuick()"><span class="icon">📦</span> تسجيل توزيع مساعدة</button>
       <button class="big-btn secondary" onclick="goto('list')"><span class="icon">🔍</span> البحث عن عائلة</button>
+      <!-- ===== FEATURE: مسح رمز QR ===== -->
+      <button class="big-btn secondary" onclick="openQRScanner()"><span class="icon">📷</span> مسح رمز QR لعائلة</button>
+      <!-- ===== END FEATURE: مسح رمز QR ===== -->
 
       <div class="section-title"><span>آخر التوزيعات</span><span class="line"></span></div>
       <div id="recentDist"></div>
@@ -825,6 +828,23 @@
   </div>
   <!-- ===== END FEATURE: رمز QR للعائلة ===== -->
 
+  <!-- ===== FEATURE: مسح رمز QR ===== -->
+  <div class="modal-bg" id="qrScannerBg" style="align-items:center; background:rgba(0,0,0,.9);">
+    <div class="modal" style="text-align:center; border-radius:20px; background:#0a0a0a; max-width:420px;">
+      <h3>📷 مسح رمز QR</h3>
+      <p style="font-size:13px; color:var(--text-dim);">وجّه الكاميرا على رمز العائلة</p>
+      <div style="position:relative; border-radius:14px; overflow:hidden; margin:14px 0; background:#000;">
+        <video id="qrScanVideo" playsinline autoplay muted style="width:100%; display:block; max-height:360px; object-fit:cover;"></video>
+        <div style="position:absolute; inset:0; border:3px solid rgba(63,174,107,.6); border-radius:14px; pointer-events:none;"></div>
+      </div>
+      <p id="qrScanStatus" style="font-size:12.5px; color:var(--text-dim);"></p>
+      <div class="action-row" style="margin-top:6px;">
+        <button onclick="closeQRScanner()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: مسح رمز QR ===== -->
+
   <!-- ===== FEATURE: مزامنة بين الأجهزة ===== -->
   <!-- نافذة توضح بالتفصيل شو تغيّر لما توصل تحديثات من جهاز تاني -->
   <div class="modal-bg" id="syncChangesModalBg" style="align-items:center;">
@@ -849,7 +869,7 @@
 const DB_KEY = 'kashf_almukhayam_v1';
 const SYNC_URL = 'https://kashf-almukhayam-sync.eyad2000515.workers.dev'; // FEATURE: مزامنة بين الأجهزة
 const FIXED_SYNC_CODE = 'ABUAREEBAN-KASHF-2026'; // FEATURE: مزامنة تلقائية مخفية - نفس الرمز لكل الأجهزة يلي فاتحة هاد التطبيق تلقائياً
-const APP_VERSION = '8.5'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '8.7'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -1449,36 +1469,119 @@ async function showFamilyQR(id){
   if(!f) return;
   showToast('⏳ جاري تجهيز الرمز...');
   const ok = await ensureLib('qrcode');
-  if(!ok){
+  if(!ok || typeof window.qrcode !== 'function'){
     showToast('⚠️ هاي الميزة محتاجة نت لمرة وحدة بس لتجهيزها. جرب لما يصير عندك نت.');
     return;
   }
-  const deepLink = window.location.origin + window.location.pathname + '?fid=' + encodeURIComponent(f.id);
-  const qr = window.qrcode(0, 'M'); // 0 = تحديد الحجم تلقائياً حسب طول الرابط
-  qr.addData(deepLink);
-  qr.make();
-  document.getElementById('qrCodeBox').innerHTML = qr.createImgTag(6, 8);
-  document.getElementById('qrFamilyName').textContent = '🔳 ' + f.name;
-  document.getElementById('qrModalBg').classList.add('show');
+  try{
+    const deepLink = window.location.origin + window.location.pathname + '?fid=' + encodeURIComponent(f.id);
+    // FEATURE: تثبيت حجم الرمز (بدل 0=تلقائي) لتفادي خلل بحساب الحجم التلقائي بالمكتبة مع بعض الروابط
+    let qr, made = false;
+    for(let typeNumber = 4; typeNumber <= 10 && !made; typeNumber++){
+      try{
+        qr = window.qrcode(typeNumber, 'M');
+        qr.addData(deepLink);
+        qr.make();
+        made = true;
+      }catch(innerErr){
+        made = false; // الحجم هذا مش كافي للرابط، نكبّر ونحاول تاني
+      }
+    }
+    if(!made) throw new Error('تعذر إنشاء الرمز بكل الأحجام المجرّبة');
+    document.getElementById('qrCodeBox').innerHTML = qr.createImgTag(6, 8);
+    document.getElementById('qrFamilyName').textContent = '🔳 ' + f.name;
+    document.getElementById('qrModalBg').classList.add('show');
+  }catch(err){
+    showToast('⚠️ تعذر إنشاء رمز QR لهاي العائلة. جرب مرة تانية.');
+  }
 }
 function closeFamilyQR(){
   document.getElementById('qrModalBg').classList.remove('show');
+}
+function openFamilyById(fid){ // FEATURE: دالة مشتركة بين الرابط العميق وماسح الكاميرا
+  const f = db.families.find(x=>x.id===fid && !x.deleted);
+  if(f){
+    setActiveRegistry(f.registryId); // FEATURE: كشوفات متعددة - نتأكد الكشف الصحيح نشط
+    goto('detail');
+    openDetail(f.id);
+    return true;
+  }
+  showToast('⚠️ ما لقينا هاي العائلة (ممكن تكون انحذفت)');
+  return false;
 }
 function openFamilyFromDeepLink(){
   const params = new URLSearchParams(window.location.search);
   const fid = params.get('fid');
   if(!fid) return;
-  const f = db.families.find(x=>x.id===fid && !x.deleted);
   window.history.replaceState({}, '', window.location.pathname); // ننظف الرابط حتى ما يضل ?fid= عالق
-  if(f){
-    setActiveRegistry(f.registryId); // FEATURE: كشوفات متعددة - نتأكد الكشف الصحيح نشط
-    goto('detail');
-    openDetail(f.id);
-  }else{
-    showToast('⚠️ ما لقينا هاي العائلة (ممكن تكون انحذفت)');
-  }
+  openFamilyById(fid);
 }
 /* ===== END FEATURE: رمز QR للعائلة ===== */
+
+/* ===== FEATURE: مسح رمز QR بالكاميرا ===== */
+let qrScanStream = null;
+let qrScanRAF = null;
+async function openQRScanner(){
+  document.getElementById('qrScannerBg').classList.add('show');
+  document.getElementById('qrScanStatus').textContent = '⏳ جاري تجهيز الماسح...';
+
+  const ok = await ensureLib('jsQR');
+  if(!ok || typeof window.jsQR !== 'function'){
+    document.getElementById('qrScanStatus').textContent = '⚠️ هاي الميزة محتاجة نت لمرة وحدة بس لتجهيزها.';
+    return;
+  }
+
+  try{
+    qrScanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  }catch(err){
+    document.getElementById('qrScanStatus').textContent = '⚠️ ما قدرنا نفتح الكاميرا. تأكد من إعطاء التطبيق صلاحية الكاميرا.';
+    return;
+  }
+
+  const video = document.getElementById('qrScanVideo');
+  video.srcObject = qrScanStream;
+  await video.play().catch(()=>{});
+  document.getElementById('qrScanStatus').textContent = '📷 وجّه الكاميرا على الرمز...';
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  function scanFrame(){
+    if(!qrScanStream) return; // انسكّر الماسح
+    if(video.readyState === video.HAVE_ENOUGH_DATA){
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try{
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const result = window.jsQR(imageData.data, imageData.width, imageData.height);
+        if(result && result.data){
+          handleQRScanResult(result.data);
+          return; // نوقف حلقة المسح فوراً بعد أول نتيجة
+        }
+      }catch(e){ /* تجاهل أي خطأ بقراءة فريم وحدة وكمّل بالتالي */ }
+    }
+    qrScanRAF = requestAnimationFrame(scanFrame);
+  }
+  qrScanRAF = requestAnimationFrame(scanFrame);
+}
+function handleQRScanResult(text){
+  closeQRScanner();
+  try{
+    const url = new URL(text);
+    const fid = url.searchParams.get('fid');
+    if(fid){ openFamilyById(fid); return; }
+  }catch(e){ /* مش رابط صحيح */ }
+  showToast('⚠️ هاد الرمز مش رمز عائلة من هاد التطبيق');
+}
+function closeQRScanner(){
+  document.getElementById('qrScannerBg').classList.remove('show');
+  if(qrScanRAF){ cancelAnimationFrame(qrScanRAF); qrScanRAF = null; }
+  if(qrScanStream){ qrScanStream.getTracks().forEach(t=>t.stop()); qrScanStream = null; }
+  const video = document.getElementById('qrScanVideo');
+  if(video) video.srcObject = null;
+}
+/* ===== END FEATURE: مسح رمز QR بالكاميرا ===== */
 
 function printFamilyPDF(id){
   document.getElementById('printArea').style.width = ''; // FEATURE: رجوع للعرض الافتراضي (تحسباً من تصدير الكشف الكامل)
@@ -3189,10 +3292,12 @@ const LIB_URLS = {
   html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   qrcode: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js',
+  jsQR: 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js',
 };
 async function ensureLib(name){
   const globalCheck = name === 'html2canvas' ? window.html2canvas
     : name === 'qrcode' ? window.qrcode
+    : name === 'jsQR' ? window.jsQR
     : (window.jspdf && window.jspdf.jsPDF);
   if(globalCheck) return true; // محملة أصلاً بهاي الجلسة
 
