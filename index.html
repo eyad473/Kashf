@@ -297,7 +297,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 7.4</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.2</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -446,6 +446,10 @@
 
       <!-- ===== FEATURE: طباعة PDF لملف العائلة ===== -->
       <button class="big-btn secondary" onclick="printFamilyPDF(currentFamilyId)"><span class="icon">🖨️</span> طباعة / حفظ PDF</button>
+
+      <!-- ===== FEATURE: رمز QR للعائلة ===== -->
+      <button class="big-btn secondary" onclick="showFamilyQR(currentFamilyId)"><span class="icon">🔳</span> رمز QR للعائلة</button>
+      <!-- ===== END FEATURE: رمز QR للعائلة ===== -->
       <!-- ===== END FEATURE: طباعة PDF لملف العائلة ===== -->
 
       <div class="action-row">
@@ -808,6 +812,33 @@
   </div>
   <!-- ===== END FEATURE: نظام تصدير موحد ===== -->
 
+  <!-- ===== FEATURE: رمز QR للعائلة ===== -->
+  <div class="modal-bg" id="qrModalBg" style="align-items:center;">
+    <div class="modal" style="text-align:center; border-radius:20px;">
+      <h3 id="qrFamilyName">🔳 رمز العائلة</h3>
+      <p style="font-size:13px; color:var(--text-dim);">امسح هاد الرمز بكاميرا الموبايل (من جهاز فيه التطبيق) حتى يفتح ملف العائلة مباشرة — مفيد بأيام التوزيع.</p>
+      <div id="qrCodeBox" style="background:#fff; padding:16px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin:14px auto; width:fit-content;"></div>
+      <p style="font-size:12px; color:var(--text-dim);">اضغط ضغطة طويلة على الرمز واحفظه كصورة لو بدك تطبعه أو تشاركه.</p>
+      <div class="action-row" style="margin-top:10px;">
+        <button onclick="closeFamilyQR()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: رمز QR للعائلة ===== -->
+
+  <!-- ===== FEATURE: مزامنة بين الأجهزة ===== -->
+  <!-- نافذة توضح بالتفصيل شو تغيّر لما توصل تحديثات من جهاز تاني -->
+  <div class="modal-bg" id="syncChangesModalBg" style="align-items:center;">
+    <div class="modal" style="border-radius:20px;">
+      <h3>🔄 توصلت تحديثات من جهاز تاني</h3>
+      <div id="syncChangesList" style="font-size:13.5px; line-height:2; max-height:320px; overflow-y:auto;"></div>
+      <div class="action-row" style="margin-top:16px;">
+        <button onclick="closeSyncChangesModal()" style="background:var(--accent); color:#08130d; font-weight:700;">تمام</button>
+      </div>
+    </div>
+  </div>
+  <!-- ===== END FEATURE: مزامنة بين الأجهزة ===== -->
+
   <!-- ===== FEATURE: طباعة PDF لملف العائلة (مخفي، بيظهر بس وقت الطباعة الفعلية) ===== -->
   <div id="printArea"></div>
   <!-- ===== END FEATURE: طباعة PDF لملف العائلة ===== -->
@@ -817,7 +848,9 @@
 <script>
 /* ========================= DATA LAYER ========================= */
 const DB_KEY = 'kashf_almukhayam_v1';
-const APP_VERSION = '7.4'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const SYNC_URL = 'https://kashf-almukhayam-sync.eyad2000515.workers.dev'; // FEATURE: مزامنة بين الأجهزة
+const FIXED_SYNC_CODE = 'ABUAREEBAN-KASHF-2026'; // FEATURE: مزامنة تلقائية مخفية - نفس الرمز لكل الأجهزة يلي فاتحة هاد التطبيق تلقائياً
+const APP_VERSION = '8.2'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
@@ -840,7 +873,7 @@ function migrateData(data){
   const nowTs = Date.now();
   data.families.forEach(f => { if(!f.updatedAt) f.updatedAt = nowTs; if(f.deleted === undefined) f.deleted = false; });
   data.distributions.forEach(d => { if(!d.updatedAt) d.updatedAt = d.ts || nowTs; if(d.deleted === undefined) d.deleted = false; });
-  data.registries.forEach(r => { if(!r.updatedAt) r.updatedAt = nowTs; if(r.deleted === undefined) r.deleted = false; });
+  data.registries.forEach(r => { if(!r.updatedAt) r.updatedAt = nowTs; if(r.deleted === undefined) r.deleted = false; if(r.private === undefined) r.private = false; }); // FEATURE: كشوفات خاصة بدون مزامنة
   // معرّف ثابت لهاد الجهاز (بيفيد لاحقاً وقت المزامنة نعرف مصدر كل تعديل)
   if(!data.deviceId) data.deviceId = 'dev_' + Math.random().toString(36).slice(2, 10);
   /* ===== END FEATURE: تجهيز البيانات للمزامنة ===== */
@@ -848,6 +881,12 @@ function migrateData(data){
   /* ===== FEATURE: اسم المخيم ===== */
   if(data.campName === undefined) data.campName = '';
   /* ===== END FEATURE: اسم المخيم ===== */
+
+  /* ===== FEATURE: مزامنة بين الأجهزة (تلقائية مخفية - بدون رمز يدوي) ===== */
+  if(!data.syncCode) data.syncCode = FIXED_SYNC_CODE;
+  if(!data.lastSyncedAt) data.lastSyncedAt = 0;
+  if(!data.lastSyncSuccessAt) data.lastSyncSuccessAt = 0;
+  /* ===== END FEATURE: مزامنة بين الأجهزة ===== */
 
   return data;
 }
@@ -910,16 +949,26 @@ function openRegistrySwitcher(){
     return `
       <div class="fam-card" style="${isActive?'border-color:var(--accent-dark); background:rgba(63,174,107,.06);':''} cursor:pointer;" onclick="setActiveRegistry('${r.id}'); closeRegistrySwitcher();">
         <div class="top">
-          <div class="name" style="font-size:15px;">${isActive?'✅ ':''}${escapeHtml(r.name)}</div>
+          <div class="name" style="font-size:15px;">${isActive?'✅ ':''}${r.private?'🔒 ':''}${escapeHtml(r.name)}</div>
           <span class="tag">${count} عائلة</span>
         </div>
         <div class="action-row" style="margin-top:8px;" onclick="event.stopPropagation()">
           <button onclick="renameRegistry('${r.id}')">✏️ إعادة تسمية</button>
+          <button onclick="toggleRegistryPrivate('${r.id}')">${r.private ? '🔓 إلغاء الخصوصية' : '🔒 خاص (بدون مزامنة)'}</button>
           ${regs.length>1 ? `<button class="danger" onclick="confirmDeleteRegistry('${r.id}')">🗑️ حذف</button>` : ''}
         </div>
       </div>`;
   }).join('');
   document.getElementById('registrySwitcherBg').classList.add('show');
+}
+function toggleRegistryPrivate(id){
+  const r = db.registries.find(x=>x.id===id);
+  if(!r) return;
+  r.private = !r.private;
+  r.updatedAt = Date.now();
+  saveDB();
+  showToast(r.private ? '🔒 صار الكشف خاص، ما رح يتزامن مع أي جهاز تاني' : '🔓 صار الكشف عادي، رح يتزامن زي باقي الكشوفات');
+  openRegistrySwitcher();
 }
 function closeRegistrySwitcher(){
   document.getElementById('registrySwitcherBg').classList.remove('show');
@@ -1377,6 +1426,43 @@ function openBulkDistribute(){
 /* ===== END FEATURE: توزيع جماعي ===== */
 /* ===== FEATURE: تعديل/حذف التوزيع ===== */
 /* ===== FEATURE: طباعة PDF لملف العائلة ===== */
+/* ===== FEATURE: رمز QR للعائلة ===== */
+async function showFamilyQR(id){
+  const f = db.families.find(x=>x.id===id);
+  if(!f) return;
+  showToast('⏳ جاري تجهيز الرمز...');
+  const ok = await ensureLib('qrcode');
+  if(!ok){
+    showToast('⚠️ هاي الميزة محتاجة نت لمرة وحدة بس لتجهيزها. جرب لما يصير عندك نت.');
+    return;
+  }
+  const deepLink = window.location.origin + window.location.pathname + '?fid=' + encodeURIComponent(f.id);
+  const qr = window.qrcode(0, 'M'); // 0 = تحديد الحجم تلقائياً حسب طول الرابط
+  qr.addData(deepLink);
+  qr.make();
+  document.getElementById('qrCodeBox').innerHTML = qr.createImgTag(6, 8);
+  document.getElementById('qrFamilyName').textContent = '🔳 ' + f.name;
+  document.getElementById('qrModalBg').classList.add('show');
+}
+function closeFamilyQR(){
+  document.getElementById('qrModalBg').classList.remove('show');
+}
+function openFamilyFromDeepLink(){
+  const params = new URLSearchParams(window.location.search);
+  const fid = params.get('fid');
+  if(!fid) return;
+  const f = db.families.find(x=>x.id===fid && !x.deleted);
+  window.history.replaceState({}, '', window.location.pathname); // ننظف الرابط حتى ما يضل ?fid= عالق
+  if(f){
+    setActiveRegistry(f.registryId); // FEATURE: كشوفات متعددة - نتأكد الكشف الصحيح نشط
+    goto('detail');
+    openDetail(f.id);
+  }else{
+    showToast('⚠️ ما لقينا هاي العائلة (ممكن تكون انحذفت)');
+  }
+}
+/* ===== END FEATURE: رمز QR للعائلة ===== */
+
 function printFamilyPDF(id){
   document.getElementById('printArea').style.width = ''; // FEATURE: رجوع للعرض الافتراضي (تحسباً من تصدير الكشف الكامل)
   const f = db.families.find(x=>x.id===id);
@@ -2861,6 +2947,7 @@ applyTheme(localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
 /* ========================= END FEATURE: ثيمات داكن/فاتح ========================= */
 updateAppTitleUI(); // FEATURE: اسم المخيم
 renderHome();
+openFamilyFromDeepLink(); // FEATURE: رمز QR للعائلة - لو الرابط فيه ?fid= يفتح العائلة مباشرة
 
 /* ========================= FEATURE: التحقق من وجود تحديث ========================= */
 function isNewerVersion(remote, local){
@@ -2912,7 +2999,107 @@ function checkVersionChanged(){
 function closeUpdatedModal(){
   document.getElementById('updatedModalBg').classList.remove('show');
 }
+/* ========================= FEATURE: مزامنة بين الأجهزة (تلقائية مخفية) ========================= */
+function collectLocalChanges(){
+  // FEATURE: كشوفات خاصة - نستثني أي كشف معلّم "خاص" وكل بياناته من المزامنة كلياً
+  const privateRegIds = new Set(db.registries.filter(r=>r.private).map(r=>r.id));
+  return {
+    registries: db.registries.filter(r=>r.updatedAt > db.lastSyncedAt && !r.private),
+    families: db.families.filter(f=>f.updatedAt > db.lastSyncedAt && !privateRegIds.has(f.registryId)),
+    distributions: db.distributions.filter(d=>{
+      if(d.updatedAt <= db.lastSyncedAt) return false;
+      const fam = db.families.find(x=>x.id===d.familyId);
+      return !(fam && privateRegIds.has(fam.registryId));
+    }),
+  };
+}
+/* FEATURE: تتبع تفصيلي للتغييرات — نوضح بالضبط شو تغيّر لما توصل تحديثات من جهاز تاني */
+function mergeServerChanges(serverChanges){
+  const changeLines = [];
+  // العائلات والكشوفات أول (حتى نعرف اسمها لو توزيع محتاج الاسم)
+  const order = ['registries','families','distributions'];
+  order.forEach(table=>{
+    const incomingRows = (serverChanges && serverChanges[table]) || [];
+    incomingRows.forEach(incoming=>{
+      const arr = db[table];
+      const idx = arr.findIndex(x=>x.id===incoming.id);
+      const isNew = idx === -1;
+      if(!isNew && incoming.updatedAt <= arr[idx].updatedAt) return; // عندنا نسخة أحدث أو مساوية، تجاهل
+
+      if(table === 'families'){
+        if(incoming.deleted && !isNew && !arr[idx].deleted) changeLines.push(`🗑️ حذف عائلة "${incoming.name}"`);
+        else if(!incoming.deleted && !isNew && arr[idx].deleted) changeLines.push(`↩️ استرجاع عائلة "${incoming.name}"`);
+        else if(isNew) changeLines.push(`➕ عائلة جديدة "${incoming.name}"`);
+        else changeLines.push(`✏️ تعديل بيانات عائلة "${incoming.name}"`);
+      }else if(table === 'distributions'){
+        const fam = db.families.find(f=>f.id===incoming.familyId);
+        const famName = fam ? fam.name : 'عائلة';
+        if(incoming.deleted && !isNew && !arr[idx].deleted) changeLines.push(`🗑️ حذف توزيع لعائلة "${famName}"`);
+        else if(isNew) changeLines.push(`📦 توزيع جديد (${incoming.type}) لعائلة "${famName}"`);
+        else changeLines.push(`📦 تعديل توزيع لعائلة "${famName}"`);
+      }else if(table === 'registries'){
+        if(isNew) changeLines.push(`➕ كشف جديد "${incoming.name}"`);
+        else if(incoming.deleted && !arr[idx].deleted) changeLines.push(`🗑️ حذف كشف "${incoming.name}"`);
+        else changeLines.push(`✏️ تعديل كشف "${incoming.name}"`);
+      }
+
+      if(isNew) arr.push(incoming);
+      else arr[idx] = incoming;
+    });
+  });
+  // لو الكشف النشط الحالي انحذف من جهاز تاني، لازم نرجع لكشف موجود فعلياً
+  if(!db.registries.some(r=>r.id===db.activeRegistryId && !r.deleted)){
+    const fallback = db.registries.find(r=>!r.deleted);
+    if(fallback) db.activeRegistryId = fallback.id;
+  }
+  return changeLines;
+}
+function showSyncChangesNotice(changeLines){
+  const MAX_SHOW = 8;
+  const shown = changeLines.slice(0, MAX_SHOW);
+  let html = shown.map(l=>`<div>${escapeHtml(l)}</div>`).join('');
+  if(changeLines.length > MAX_SHOW) html += `<div style="color:var(--text-dim); margin-top:8px;">و${changeLines.length - MAX_SHOW} تغييرات أخرى...</div>`;
+  document.getElementById('syncChangesList').innerHTML = html;
+  document.getElementById('syncChangesModalBg').classList.add('show');
+}
+function closeSyncChangesModal(){ document.getElementById('syncChangesModalBg').classList.remove('show'); }
+
+let syncInProgress = false;
+async function runSync(){
+  if(syncInProgress) return;
+  syncInProgress = true;
+  try{
+    const changes = collectLocalChanges();
+    const res = await fetch(SYNC_URL + '/sync', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ syncCode: db.syncCode, lastSyncedAt: db.lastSyncedAt, changes }),
+    });
+    const data = await res.json();
+    if(!res.ok || data.error) throw new Error(data.error || ('HTTP '+res.status));
+    const changeLines = mergeServerChanges(data.changes);
+    db.lastSyncedAt = data.serverTime;
+    db.lastSyncSuccessAt = Date.now();
+    saveDB();
+    if(changeLines.length > 0){
+      // إعادة رسم الشاشة الحالية المتأثرة
+      renderHome();
+      if(document.getElementById('screen-list').classList.contains('active')) renderList();
+      if(document.getElementById('screen-detail').classList.contains('active') && currentFamilyId) openDetail(currentFamilyId);
+      showSyncChangesNotice(changeLines); // FEATURE: توضيح تفصيلي بالتغييرات الواردة
+    }
+  }catch(err){
+    // فشل بصمت — رح نعيد المحاولة تلقائياً بالمرة الجاية (فتح تطبيق/رجوع نت/دورياً)
+  }finally{
+    syncInProgress = false;
+  }
+}
+/* ========================= END FEATURE: مزامنة بين الأجهزة ========================= */
+
 checkVersionChanged();
+runSync(); // FEATURE: مزامنة - تلقائية أول ما يفتح التطبيق
+window.addEventListener('online', function(){ runSync(); }); // FEATURE: مزامنة - أول ما يرجع النت
+setInterval(function(){ if(navigator.onLine) runSync(); }, 2*60*1000); // FEATURE: مزامنة - محاولة دورية كل دقيقتين
 
 /* ========================= FEATURE: Service Worker - ضمان الفتح بدون إنترنت ========================= */
 if('serviceWorker' in navigator){
@@ -2984,9 +3171,12 @@ setupArabicFont();
 const LIB_URLS = {
   html2canvas: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
   jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  qrcode: 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.0.3/qrcode.min.js',
 };
 async function ensureLib(name){
-  const globalCheck = name === 'html2canvas' ? window.html2canvas : (window.jspdf && window.jspdf.jsPDF);
+  const globalCheck = name === 'html2canvas' ? window.html2canvas
+    : name === 'qrcode' ? window.qrcode
+    : (window.jspdf && window.jspdf.jsPDF);
   if(globalCheck) return true; // محملة أصلاً بهاي الجلسة
 
   const cacheKey = 'kashf_lib_' + name;
