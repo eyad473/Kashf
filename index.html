@@ -103,12 +103,12 @@
   .big-btn{
     width:100%; padding:20px 16px; border-radius:var(--radius); border:none;
     background:var(--accent); color:#08130d; font-size:17px; font-weight:700;
-    display:flex; align-items:center; gap:12px; cursor:pointer; margin-bottom:12px;
+    display:flex; align-items:center; gap:14px; cursor:pointer; margin-bottom:12px;
     box-shadow:0 4px 14px rgba(63,174,107,.25);
   }
   .big-btn.secondary{ background:var(--panel-2); color:var(--text); border:1px solid var(--border); box-shadow:none; }
   .big-btn.outline{ background:transparent; color:var(--accent); border:1.5px solid var(--accent); box-shadow:none; }
-  .big-btn .icon{ font-size:22px; width:30px; text-align:center; }
+  .big-btn .icon{ font-size:22px; width:32px; flex-shrink:0; text-align:center; }
   .big-btn:active{ transform:scale(.98); }
 
   /* ---------- Forms ---------- */
@@ -297,7 +297,7 @@
     <div class="title-row">
       <div>
         <h1 id="appTitleH1">📋 كشف المخيم</h1>
-        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.2</div>
+        <div class="sub" id="headerSub">إدارة سكان المخيم والمساعدات · إصدار 8.3</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <!-- ===== FEATURE: ثيمات داكن/فاتح - زر تبديل ===== -->
@@ -394,7 +394,7 @@
       <div class="save-bar">
         <div class="save-bar-inner">
           <button class="big-btn secondary" style="margin:0" onclick="goto('home')">إلغاء</button>
-          <button class="big-btn" style="margin:0" onclick="saveFamily()">💾 حفظ العائلة</button>
+          <button class="big-btn" style="margin:0" onclick="saveFamily()"><span class="icon">💾</span> حفظ العائلة</button>
         </div>
       </div>
     </section>
@@ -429,7 +429,7 @@
     <div class="save-bar" id="bulkActionBar" style="display:none;">
       <div class="save-bar-inner">
         <button class="big-btn secondary" style="margin:0" onclick="toggleBulkMode()">إلغاء</button>
-        <button class="big-btn" style="margin:0" id="bulkActionBtn" onclick="openBulkDistribute()">📦 توزيع جماعي (0)</button>
+        <button class="big-btn" style="margin:0" id="bulkActionBtn" onclick="openBulkDistribute()"><span class="icon">📦</span> توزيع جماعي (0)</button>
       </div>
     </div>
     <!-- ===== END FEATURE: توزيع جماعي ===== -->
@@ -494,24 +494,6 @@
 
     <!-- ===================== التقارير ===================== -->
     <section class="screen" id="screen-reports">
-      <div class="section-title" style="margin-top:0"><span>التقارير والتصدير</span><span class="line"></span></div>
-
-      <!-- ===== FEATURE: قائمة مخصصة ===== -->
-      <button class="big-btn" style="background:var(--accent-2); color:#2a1c05;" onclick="goto('customlist')"><span class="icon">🎯</span> إنشاء قائمة مخصصة (فلترة + أعمدة محددة)</button>
-
-      <!-- ===== FEATURE: حساب الأعمار تلقائياً ===== -->
-      <button class="big-btn secondary" onclick="openAgeCalcModal()"><span class="icon">🎂</span> حساب الأعمار تلقائياً من تاريخ الميلاد</button>
-      <!-- ===== END FEATURE: حساب الأعمار تلقائياً ===== -->
-
-      <!-- ===== FEATURE: كاشف التكرار ===== -->
-      <button class="big-btn secondary" onclick="openDuplicateFinder()"><span class="icon">🔍</span> كاشف التكرار (أسماء متشابهة)</button>
-      <!-- ===== END FEATURE: كاشف التكرار ===== -->
-
-      <!-- ===== FEATURE: سلة المحذوفات ===== -->
-      <button class="big-btn secondary" onclick="goto('trash')"><span class="icon">🗑️</span> سلة المحذوفات</button>
-      <!-- ===== END FEATURE: سلة المحذوفات ===== -->
-      <!-- ===== END FEATURE: قائمة مخصصة ===== -->
-
       <div class="stat-grid">
         <div class="stat-card"><div class="num" id="rFamilies">0</div><div class="lbl">عائلات</div></div>
         <div class="stat-card"><div class="num" id="rPeople">0</div><div class="lbl">أفراد</div></div>
@@ -519,6 +501,23 @@
         <div class="stat-card"><div class="num" id="rDist">0</div><div class="lbl">توزيعات مسجّلة</div></div>
       </div>
 
+      <!-- ===== قسم: أدوات ===== -->
+      <div class="section-title"><span>🛠️ أدوات</span><span class="line"></span></div>
+      <!-- ===== FEATURE: قائمة مخصصة ===== -->
+      <button class="big-btn" style="background:var(--accent-2); color:#2a1c05;" onclick="goto('customlist')"><span class="icon">🎯</span> إنشاء قائمة مخصصة (فلترة + أعمدة محددة)</button>
+      <!-- ===== FEATURE: حساب الأعمار تلقائياً ===== -->
+      <button class="big-btn secondary" onclick="openAgeCalcModal()"><span class="icon">🎂</span> حساب الأعمار تلقائياً من تاريخ الميلاد</button>
+      <!-- ===== END FEATURE: حساب الأعمار تلقائياً ===== -->
+      <!-- ===== FEATURE: كاشف التكرار ===== -->
+      <button class="big-btn secondary" onclick="openDuplicateFinder()"><span class="icon">🔍</span> كاشف التكرار (أسماء متشابهة)</button>
+      <!-- ===== END FEATURE: كاشف التكرار ===== -->
+      <!-- ===== FEATURE: سلة المحذوفات ===== -->
+      <button class="big-btn secondary" onclick="goto('trash')"><span class="icon">🗑️</span> سلة المحذوفات</button>
+      <!-- ===== END FEATURE: سلة المحذوفات ===== -->
+      <!-- ===== END FEATURE: قائمة مخصصة ===== -->
+
+      <!-- ===== قسم: تصدير ===== -->
+      <div class="section-title"><span>📤 تصدير</span><span class="line"></span></div>
       <button class="big-btn" onclick="openExportColsModal('xlsx')"><span class="icon">📤</span> تصدير كشف العائلات (Excel)</button>
       <button class="big-btn secondary" onclick="exportDistCSV()"><span class="icon">📤</span> تصدير سجل التوزيعات (Excel)</button>
       <!-- ===== FEATURE: تصدير الكشف كامل PDF ===== -->
@@ -531,11 +530,11 @@
       <!-- ===== END FEATURE: زر مشاركة مباشرة ===== -->
 
       <!-- ===== FEATURE: تقرير نصي سريع ===== -->
-      <div class="section-title"><span>تقرير نصي سريع (لواتساب)</span><span class="line"></span></div>
+      <div class="section-title"><span>💬 تقرير نصي سريع (لواتساب)</span><span class="line"></span></div>
       <button class="big-btn secondary" onclick="openQuickReport()"><span class="icon">📋</span> إنشاء تقرير نصي سريع</button>
       <!-- ===== END FEATURE: تقرير نصي سريع ===== -->
 
-      <div class="section-title"><span>استيراد كشف عائلات من إكسل</span><span class="line"></span></div>
+      <div class="section-title"><span>📥 استيراد كشف عائلات من إكسل</span><span class="line"></span></div>
       <p style="color:var(--text-dim); font-size:13px; line-height:1.9; margin:0 0 12px;">
         ارفع ملف الكشف مباشرة بصيغة <b>xlsx</b> (نفس الملف من إكسل بدون أي تحويل) أو CSV.
         التطبيق بيتعرف تلقائياً على أعمدة (الاسم، الهاتف، الخيمة، عدد الأفراد...) مهما كان ترتيبها، وبياخد الشيت الأول بالملف.
@@ -543,11 +542,11 @@
       <input type="file" id="importFile" accept="*/*" style="display:none" onchange="importFamiliesFile(event)">
       <button class="big-btn" onclick="document.getElementById('importFile').click()"><span class="icon">📥</span> اختيار ملف CSV للاستيراد</button>
 
-      <div class="section-title"><span>استعادة نسخة احتياطية</span><span class="line"></span></div>
+      <div class="section-title"><span>🗄️ استعادة نسخة احتياطية</span><span class="line"></span></div>
       <input type="file" id="restoreFile" accept="application/json" style="display:none" onchange="restoreBackup(event)">
       <button class="big-btn secondary" onclick="document.getElementById('restoreFile').click()"><span class="icon">🗄️</span> استيراد نسخة احتياطية</button>
 
-      <div class="section-title"><span style="color:var(--danger)">منطقة الخطر</span><span class="line"></span></div>
+      <div class="section-title"><span style="color:var(--danger)">⚠️ منطقة الخطر</span><span class="line"></span></div>
       <p style="color:var(--text-dim); font-size:13px; line-height:1.9; margin:0 0 12px;">
         بمسح كل البيانات وبدء كشف جديد من الصفر (مثلاً لو جاي كشف محدّث كامل للمخيم وبدك تشيل القديم كله).
       </p>
@@ -568,7 +567,7 @@
 
       <div class="section-title"><span>1. أضف الشروط يلي بدك (اختياري)</span><span class="line"></span></div>
       <div id="clConditionsList"></div>
-      <button class="big-btn outline" style="padding:14px;" onclick="addClCondition()">➕ إضافة شرط</button>
+      <button class="big-btn outline" style="padding:14px;" onclick="addClCondition()"><span class="icon">➕</span> إضافة شرط</button>
 
       <div class="section-title"><span>2. حدد الأعمدة يلي بدك ياها بس</span><span class="line"></span></div>
       <div id="clColumnsList"></div>
@@ -685,8 +684,8 @@
       <div id="importPreviewList" style="max-height:220px; overflow-y:auto; margin-bottom:14px;"></div>
       <div id="importDupChoice" style="display:none; margin-bottom:8px;">
         <label style="margin:0 0 8px;">في أسماء مكررة، شو بدك تعمل فيها؟</label>
-        <button class="big-btn secondary" style="margin-bottom:8px;" onclick="commitImport('skip')">🚫 خلّي القديمة متل ما هي (تجاهل الجديدة)</button>
-        <button class="big-btn" style="margin-bottom:8px; background:var(--accent-2); color:#2a1c05;" onclick="commitImport('replace')">🔄 استبدل القديمة بالبيانات الجديدة</button>
+        <button class="big-btn secondary" style="margin-bottom:8px;" onclick="commitImport('skip')"><span class="icon">🚫</span> خلّي القديمة متل ما هي (تجاهل الجديدة)</button>
+        <button class="big-btn" style="margin-bottom:8px; background:var(--accent-2); color:#2a1c05;" onclick="commitImport('replace')"><span class="icon">🔄</span> استبدل القديمة بالبيانات الجديدة</button>
       </div>
       <div class="action-row" id="importSimpleConfirm">
         <button onclick="cancelImport()">إلغاء</button>
@@ -850,7 +849,7 @@
 const DB_KEY = 'kashf_almukhayam_v1';
 const SYNC_URL = 'https://kashf-almukhayam-sync.eyad2000515.workers.dev'; // FEATURE: مزامنة بين الأجهزة
 const FIXED_SYNC_CODE = 'ABUAREEBAN-KASHF-2026'; // FEATURE: مزامنة تلقائية مخفية - نفس الرمز لكل الأجهزة يلي فاتحة هاد التطبيق تلقائياً
-const APP_VERSION = '8.2'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
+const APP_VERSION = '8.3'; // FEATURE: التحقق من التحديث - لازم يتحدث مع كل رفعة نسخة جديدة
 const UPDATE_CHECK_URL = 'https://eyad473.github.io/Kashf/index.html';
 function migrateData(data){
   if(!data) data = { families: [], distributions: [] };
